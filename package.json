@@ -1,0 +1,35 @@
+{
+  "name": "tournamention",
+  "version": "0.1.0",
+  "description": "A Discord.js TypeScript bot for managing custom challenges for users to complete.",
+  "main": "index.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coreybriscoe/tournamention.git"
+  },
+  "type": "module",
+  "keywords": [
+    "discord"
+  ],
+  "author": "Corey Briscoe and Zade Dohan",
+  "license": "SEE LICENSE IN LICENSE",
+  "bugs": {
+    "url": "https://github.com/coreybriscoe/tournamention/issues"
+  },
+  "homepage": "https://github.com/coreybriscoe/tournamention#readme",
+  "dependencies": {
+    "@types/node": "^20.4.2",
+    "discord.js": "^14.11.0",
+    "dotenv": "^16.3.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.1.6"
+  },
+  "devDependencies": {
+    "eslint": "^8.45.0",
+    "prettier": "^3.0.0"
+  }
+}
