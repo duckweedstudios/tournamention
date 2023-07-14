@@ -9,7 +9,6 @@
     ],
     "root": true,
     "rules": {
-        "arrow-style": ["error", { "before": true, "after": true }],
         "brace-style": ["warn", "1tbs",  { "allowSingleLine": true }],
         "indent": ["error", 4, { "SwitchCase": 1 }],
         "no-empty-function": "warn",
