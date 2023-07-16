@@ -1,32 +1,32 @@
-import { Schema, Document, model } from 'mongoose';
+import { prop, Ref, getModelForClass } from '@typegoose/typegoose';
+import { Judge } from './judge';
+import { Challenge } from './challenge';
+import { Contestant } from './contestant';
 
-interface ReviewNote extends Document {
-    _id: Schema.Types.ObjectId;
-    judgeID: number;
-    note: string;
-    status: string;
+export class ReviewNote {
+    @prop({ required: true, type: () => Judge})
+    public judgeID!: Ref<Judge>;
+
+    @prop({ required: true })
+    public note!: string;
+
+    @prop({ required: true })
+    public status!: string;
 }
 
-interface Submission extends Document {
-    _id: Schema.Types.ObjectId;
-    challengeID: Schema.Types.ObjectId;
-    contestantID: Schema.Types.ObjectId;
-    proof: string;
-    reviewNotes: ReviewNote[];
+export class Submission {
+    @prop({ required: true, type: () => Challenge, index: true })
+    public challengeID!: Ref<Challenge>;
+
+    @prop({ required: true, type: () => Contestant, index: true })
+    public contestantID!: Ref<Contestant>;
+
+    @prop({ required: true })
+    public proof!: string;
+
+    @prop({ required: true, type: () => [ReviewNote] })
+    public reviewNotes!: ReviewNote[];
 }
-
-export const ReviewNoteSchema = new Schema({
-    judgeID: { type: Number, require: true },
-    note: { type: String },
-    status: { type: String, require: true },
-});
-
-const SubmissionSchema = new Schema({
-    challengeID: { type: Schema.Types.ObjectId, ref: 'Challenge', require: true, index: true },
-    contestantID: { type: Schema.Types.ObjectId, ref: 'Contestant', require: true, index: true },
-    proof: { type: String, require: true },
-    reviewNotes: { type: [ReviewNoteSchema], default: [] },
-});
 
 // SubmissionSchema.virtual('status').get((s => {
 //     s.reviewNotes.reduce((prev: ReviewNote, curr: ReviewNote) => {
@@ -34,6 +34,6 @@ const SubmissionSchema = new Schema({
 //     })
 // });
 
-export const ReviewNoteModel = model<ReviewNote>('ReviewNote', ReviewNoteSchema);
+export const ReviewNoteModel = getModelForClass(ReviewNote);
 
-export const SubmissionModel = model<Submission>('Submission', SubmissionSchema);
+export const SubmissionModel = getModelForClass(Submission);
