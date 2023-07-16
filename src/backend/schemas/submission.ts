@@ -1,9 +1,12 @@
+import { ObjectId } from 'mongodb';
 import { prop, Ref, getModelForClass } from '@typegoose/typegoose';
 import { Judge } from './judge';
 import { Challenge } from './challenge';
 import { Contestant } from './contestant';
 
 export class ReviewNote {
+    _id!: ObjectId;
+
     @prop({ required: true, type: () => Judge})
     public judgeID!: Ref<Judge>;
 
@@ -28,12 +31,17 @@ export class Submission {
     public reviewNotes!: ReviewNote[];
 }
 
-// SubmissionSchema.virtual('status').get((s => {
-//     s.reviewNotes.reduce((prev: ReviewNote, curr: ReviewNote) => {
-//         if (new Schema.Types.ObjectId(prev._id.toString()).getTimestamp())
-//     })
-// });
-
 export const ReviewNoteModel = getModelForClass(ReviewNote);
 
 export const SubmissionModel = getModelForClass(Submission);
+
+SubmissionModel.schema.virtual('status').get((s: Submission) => {
+    if (s.reviewNotes.length === 0) {
+        return 'Pending';
+    }
+    return s.reviewNotes.reduce(
+        (prev: ReviewNote, curr: ReviewNote) => {
+            return prev._id.getTimestamp().getTime() > curr._id.getTimestamp().getTime() ? prev : curr;
+        }, s.reviewNotes[0]
+    ).status;
+});
