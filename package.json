@@ -23,6 +23,7 @@
   "homepage": "https://github.com/coreybriscoe/tournamention#readme",
   "dependencies": {
     "@typegoose/typegoose": "^11.3.0",
+    "@types/mongodb": "^4.0.7",
     "@types/node": "^20.4.2",
     "discord.js": "^14.11.0",
     "dotenv": "^16.3.1",
