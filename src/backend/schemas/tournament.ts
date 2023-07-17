@@ -1,8 +1,11 @@
+import { ObjectId } from 'mongodb';
 import { prop, getModelForClass } from '@typegoose/typegoose';
 import { Challenge } from './challenge';
 import { Difficulty } from './difficulty';
 
 export class Tournament {
+    _id!: ObjectId;
+
     @prop({ required: true, index: true })
     public guildID!: string;
 
@@ -13,7 +16,7 @@ export class Tournament {
     public photoURI!: string;
 
     @prop({ required: true })
-    public status!: boolean;
+    public active!: boolean;
 
     @prop({ required: true })
     public statusDescription!: string;
