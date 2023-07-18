@@ -1,15 +1,16 @@
 import { ObjectId } from 'mongodb';
-import { prop, getModelForClass } from '@typegoose/typegoose';
+import { prop, index, getModelForClass } from '@typegoose/typegoose';
 import { Challenge } from './challenge';
 import { Difficulty } from './difficulty';
 
+@index({ guildID: 1, name: 1 }, { unique: true })
 export class Tournament {
     _id!: ObjectId;
 
     @prop({ required: true, index: true })
     public guildID!: string;
 
-    @prop({ required: true, unique: true })
+    @prop({ required: true })
     public name!: string;
 
     @prop({ required: true })
