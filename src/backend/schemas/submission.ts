@@ -20,7 +20,7 @@ export class ReviewNote {
     public note!: string;
 
     @prop({ required: true })
-    public status!: string;
+    public status!: SubmissionStatus;
 }
 
 export class Submission {
@@ -33,7 +33,7 @@ export class Submission {
     @prop({ required: true })
     public proof!: string;
 
-    @prop({ required: true, type: () => [ReviewNote] })
+    @prop({ required: true, type: () => [ReviewNote], default: [] })
     public reviewNotes!: ReviewNote[];
 }
 
