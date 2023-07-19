@@ -28,10 +28,10 @@ export class Tournament {
     @prop({ required: true })
     public duration!: string;
 
-    @prop({ required: true, type: () => [Challenge] })
+    @prop({ required: true, type: () => [Challenge], default: [] })
     public challenges!: Challenge[];
 
-    @prop({ required: true, type: () => [Difficulty] })
+    @prop({ required: true, type: () => [Difficulty], default: [] })
     public difficulties!: Difficulty[];
 }
 
