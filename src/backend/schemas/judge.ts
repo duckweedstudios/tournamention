@@ -1,5 +1,6 @@
-import { prop, getModelForClass } from '@typegoose/typegoose';
+import { prop, index, getModelForClass } from '@typegoose/typegoose';
 
+@index({ userID: 1, guildID: 1 }, { unique: true })
 export class Judge {
     @prop({ required: true, index: true})
     public userID!: string;
