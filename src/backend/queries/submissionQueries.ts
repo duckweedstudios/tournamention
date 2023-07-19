@@ -28,7 +28,7 @@ export const getSubmissionsForChallenge = async (challengeID: Ref<Challenge>) =>
 
 // UPDATE / PUT
 export const addReviewNoteToSubmission = async (submission: Ref<Submission>, judgeID: Ref<Judge>, note: string, reviewStatus: SubmissionStatus) => {
-    SubmissionModel.findOneAndUpdate({ _id: submission}, {
+    return SubmissionModel.findOneAndUpdate({ _id: submission}, {
         $push: {
             reviewNotes: new ReviewNoteModel({ judgeID: judgeID, note: note, status: reviewStatus }),
         }
