@@ -5,6 +5,7 @@ import { Challenge } from './challenge';
 import { Contestant } from './contestant';
 
 export enum SubmissionStatus {
+    /* eslint-disable no-unused-vars */
     Pending = 'Pending',
     Accepted = 'Accepted',
     Rejected = 'Rejected',
