@@ -1,9 +1,11 @@
 import dotenv from 'dotenv';
 dotenv.config();
-import { Client } from 'discord.js';
+import fs from 'fs';
+import path from 'path';
 import mongoose from 'mongoose';
 import example from './example.js';
 import example2 from './example2.js';
+import { TournamentionClient } from './types/client.js';
 
 // Database connection
 mongoose.connect(process.env.DB_URI as string)
@@ -13,9 +15,18 @@ mongoose.connect(process.env.DB_URI as string)
         console.log(`Error connecting to database: ${err}}`);
     });
 
-const client = new Client({
-    intents: [],
-});
+const client = await TournamentionClient.getInstance();
+
+// APPLICATION COMMANDS
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js') || file.endsWith('.ts'));
+
+for (const file of commandFiles) {
+    const filePath = path.join(commandsPath, file);
+    const command = await import(filePath);
+    client.addCommands([{ name: command.data.name, command: command }]);
+}
+
 client.login(process.env.DISCORD_TOKEN);
 
 console.log(example());
