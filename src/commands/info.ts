@@ -2,12 +2,13 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteraction } from 'discord.js';
 import { CustomCommand } from '../types/customCommand.js';
 
-export default class InfoCommand implements CustomCommand {
-    data = new SlashCommandBuilder()
+const InfoCommand = new CustomCommand(
+    new SlashCommandBuilder()
         .setName('info')
-        .setDescription('Display Tournamention bot information');
+        .setDescription('Display Tournamention bot information.'),
+    async (interaction: CommandInteraction) => {
+        interaction.reply('Hello world!');
+    }
+);
 
-    execute = async (interaction: CommandInteraction) => {
-        interaction.reply(`${'Hello world!'}`);
-    };
-}
+export default InfoCommand;
