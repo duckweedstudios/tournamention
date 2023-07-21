@@ -1,13 +1,14 @@
-import { ChatInputApplicationCommandData, Client, Collection } from 'discord.js';
+import { Client, Collection } from 'discord.js';
+import { CustomCommand } from './customCommand.js';
 
 export type SlashCommandCollectionPair = {
     name: string;
-    command: ChatInputApplicationCommandData;
+    command: CustomCommand;
 }
 
 export class TournamentionClient extends Client {
     private static instance: TournamentionClient;
-    private commands: Collection<string, ChatInputApplicationCommandData>;
+    private commands: Collection<string, CustomCommand>;
 
     private constructor() {
         super({
@@ -23,11 +24,11 @@ export class TournamentionClient extends Client {
         });
     }
 
-    public getCommands(): Collection<string, ChatInputApplicationCommandData> {
+    public getCommands(): Collection<string, CustomCommand> {
         return this.commands;
     }
 
-    public getCommand(name: string): ChatInputApplicationCommandData | undefined {
+    public getCommand(name: string): CustomCommand | undefined {
         return this.commands.get(name);
     }
 
