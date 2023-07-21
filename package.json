@@ -5,6 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "start": "ts-node src/index.ts",
+    "deploy-commands": "ts-node src/util/deploy-commands.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
