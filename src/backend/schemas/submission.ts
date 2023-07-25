@@ -1,8 +1,8 @@
 import { ObjectId } from 'mongodb';
 import { prop, Ref, getModelForClass } from '@typegoose/typegoose';
-import { Judge } from './judge';
-import { Challenge } from './challenge';
-import { Contestant } from './contestant';
+import { Judge } from './judge.js';
+import { Challenge } from './challenge.js';
+import { Contestant } from './contestant.js';
 
 export enum SubmissionStatus {
     /* eslint-disable no-unused-vars */

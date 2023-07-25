@@ -1,5 +1,5 @@
 import { prop, Ref, getModelForClass } from '@typegoose/typegoose';
-import { Difficulty } from './difficulty';
+import { Difficulty } from './difficulty.js';
 
 export class Challenge {
     @prop({ required: true, unique: true })

@@ -1,5 +1,5 @@
 import { Ref } from '@typegoose/typegoose';
-import { Tournament, TournamentModel } from '../schemas/tournament';
+import { Tournament, TournamentModel } from '../schemas/tournament.js';
 
 // CREATE / POST
 export const createTournament = async (guildID: string, name: string, photoURI: string, active: boolean, statusDescription: string, visibility: boolean, duration: string) => {
