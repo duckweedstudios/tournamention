@@ -5,6 +5,7 @@ import example from './example.js';
 import example2 from './example2.js';
 import { TournamentionClient } from './types/client.js';
 import { prepareCommands } from './util/commandHandler.js';
+import { prepareEvents } from './util/eventHandler.js';
 
 // Database connection
 mongoose.connect(process.env.DB_URI as string)
@@ -18,6 +19,9 @@ const client = await TournamentionClient.getInstance();
 
 // APPLICATION COMMANDS
 prepareCommands(client);
+
+// EVENTS
+prepareEvents(client);
 
 client.login(process.env.DISCORD_TOKEN);
 
