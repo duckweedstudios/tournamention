@@ -7,8 +7,13 @@ import { TournamentionClient } from './types/client.js';
 import { prepareCommands } from './util/commandHandler.js';
 import { prepareEvents } from './util/eventHandler.js';
 
+// Mongoose configuration setting (see https://github.com/Automattic/mongoose/issues/7150)
+mongoose.Schema.Types.String.checkRequired(v => v != null);
+
 // Database connection
-mongoose.connect(process.env.DB_URI as string)
+mongoose.connect(process.env.DB_URI as string, {
+    dbName: 'tournamentionDB',
+})
     .then(() => {
         console.log('Database connection established');
     }).catch((err) => {
