@@ -1,8 +1,11 @@
+import { ObjectId } from 'mongodb';
 import { prop, Ref, getModelForClass } from '@typegoose/typegoose';
 import { Difficulty } from './difficulty.js';
 
 export class Challenge {
-    @prop({ required: true, unique: true })
+    _id!: ObjectId;
+    
+    @prop({ required: true })
     public name!: string;
 
     @prop({ required: true })
