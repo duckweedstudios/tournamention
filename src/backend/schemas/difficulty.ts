@@ -1,7 +1,7 @@
 import { prop, getModelForClass } from '@typegoose/typegoose';
 
 export class Difficulty {
-    @prop({ required: true, unique: true })
+    @prop({ required: true })
     public emoji!: string;
 
     @prop({ required: true })

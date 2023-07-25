@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { prop, index, getModelForClass } from '@typegoose/typegoose';
-import { Challenge } from './challenge';
-import { Difficulty } from './difficulty';
+import { Challenge } from './challenge.js';
+import { Difficulty } from './difficulty.js';
 
 @index({ guildID: 1, name: 1 }, { unique: true })
 export class Tournament {

@@ -1,5 +1,8 @@
 import { Ref } from '@typegoose/typegoose';
-import { Tournament, TournamentModel } from '../schemas/tournament';
+import { Tournament, TournamentModel } from '../schemas/tournament.js';
+import { Challenge } from '../schemas/challenge.js';
+import { DuplicateSubdocumentError } from '../../types/customError.js';
+import { Difficulty } from '../schemas/difficulty.js';
 
 // CREATE / POST
 export const createTournament = async (guildID: string, name: string, photoURI: string, active: boolean, statusDescription: string, visibility: boolean, duration: string) => {
@@ -13,6 +16,67 @@ export const createTournament = async (guildID: string, name: string, photoURI: 
         duration: duration,
     });
 };
+
+export class TournamentBuilder {
+    private name: string | null;
+    private photoURI: string;
+    private active: boolean;
+    private statusDescription: string;
+    private visibility: boolean;
+    private duration: string;
+
+    constructor() {
+        this.name = null;
+        this.photoURI = '';
+        this.active = true;
+        this.statusDescription = '';
+        this.visibility = true;
+        this.duration = '';
+    }
+
+    public setName(name: string): TournamentBuilder {
+        this.name = name;
+        return this;
+    }
+
+    public setPhotoURI(photoURI: string): TournamentBuilder {
+        this.photoURI = photoURI;
+        return this;
+    }
+
+    public setActive(active: boolean): TournamentBuilder {
+        this.active = active;
+        return this;
+    }
+
+    public setStatusDescription(statusDescription: string): TournamentBuilder {
+        this.statusDescription = statusDescription;
+        return this;
+    }
+
+    public setVisibility(visibility: boolean): TournamentBuilder {
+        this.visibility = visibility;
+        return this;
+    }
+
+    public setDuration(duration: string): TournamentBuilder {
+        this.duration = duration;
+        return this;
+    }
+
+    public async buildForGuild(guildID: string): Promise<Tournament> {
+        if (!guildID || !this.name) throw new Error('Error in TournamentBuilder: A required property in {guildID, name} not set.');
+        return TournamentModel.create({
+            guildID: guildID,
+            name: this.name,
+            photoURI: this.photoURI,
+            active: this.active,
+            statusDescription: this.statusDescription,
+            visibility: this.visibility,
+            duration: this.duration,
+        });
+    }
+}
 
 // READ / GET
 export const getTournamentById = async (id: Ref<Tournament>) => {
@@ -43,6 +107,26 @@ export const updateTournament = async (id: Ref<Tournament>, name?: string, photo
     if (duration !== undefined) update.duration = duration;
 
     return TournamentModel.findByIdAndUpdate(id, { $set: update });
+};
+
+export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, challenge: Challenge) => {
+    const tournament = await TournamentModel.findById(tournamentID);
+    if (!tournament) throw new Error('Error in addChallengeToTournament: Tournament not found.');
+    for (const challenge of tournament.challenges) {
+        if (challenge.name === challenge.name) throw new DuplicateSubdocumentError('Error in addChallengeToTournament: Challenge already exists in tournament.');
+    }
+    tournament.challenges.push(challenge);
+    return tournament.save();
+};
+
+export const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, difficulty: Difficulty) => {
+    const tournament = await TournamentModel.findById(tournamentID);
+    if (!tournament) throw new Error('Error in addDifficultyToTournament: Tournament not found.');
+    for (const difficulty of tournament.difficulties) {
+        if (difficulty.emoji === difficulty.emoji) throw new DuplicateSubdocumentError('Error in addDifficultyToTournament: Difficulty already exists in tournament.');
+    }
+    tournament.difficulties.push(difficulty);
+    return tournament.save();
 };
 
 // DELETE
