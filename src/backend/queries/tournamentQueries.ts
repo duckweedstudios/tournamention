@@ -3,7 +3,7 @@ import { Tournament, TournamentModel } from '../schemas/tournament.js';
 import { Challenge } from '../schemas/challenge.js';
 import { DuplicateSubdocumentError } from '../../types/customError.js';
 import { Difficulty } from '../schemas/difficulty.js';
-import { TournamentDocument } from 'src/types/customDocument.js';
+import { TournamentDocument } from '../../types/customDocument.js';
 
 // CREATE / POST
 export const createTournament = async (guildID: string, name: string, photoURI: string, active: boolean, statusDescription: string, visibility: boolean, duration: string): Promise<TournamentDocument> => {

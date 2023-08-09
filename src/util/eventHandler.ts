@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { TournamentionClient } from 'src/types/client.js';
-import { CustomEvent } from 'src/types/customEvent.js';
 import { pathToFileURL, fileURLToPath } from 'url';
+import { TournamentionClient } from '../types/client';
+import { CustomEvent } from '../types/customEvent';
 
 export const prepareEvents = async (client: TournamentionClient) => {
     const eventsPath = pathToFileURL(path.join(process.cwd(), './src/events'));

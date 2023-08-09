@@ -1,4 +1,4 @@
-import { GuildSettingsModel } from '../schemas/guildsettings';
+import { GuildSettingsModel } from '../schemas/guildsettings.js';
 // CREATE / POST
 
 // READ / GET

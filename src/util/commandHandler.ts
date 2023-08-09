@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL, fileURLToPath } from 'url';
-import { TournamentionClient } from 'src/types/client';
-import { CustomCommand } from 'src/types/customCommand';
+import { TournamentionClient } from '../types/client';
+import { CustomCommand } from '../types/customCommand';
 
 export const prepareCommands = async (client: TournamentionClient) => {
     const commandsPath = pathToFileURL(path.join(process.cwd(), './src/commands'));
