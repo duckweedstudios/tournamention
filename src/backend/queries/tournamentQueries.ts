@@ -1,9 +1,8 @@
 import { Ref } from '@typegoose/typegoose';
 import { Tournament, TournamentModel } from '../schemas/tournament.js';
-import { Challenge } from '../schemas/challenge.js';
-import { DuplicateSubdocumentError } from '../../types/customError.js';
+import { DuplicateSubdocumentError, UserMessageError } from '../../types/customError.js';
 import { Difficulty } from '../schemas/difficulty.js';
-import { TournamentDocument } from '../../types/customDocument.js';
+import { ChallengeDocument, DifficultyDocument, TournamentDocument } from '../../types/customDocument.js';
 
 // CREATE / POST
 export const createTournament = async (guildID: string, name: string, photoURI: string, active: boolean, statusDescription: string, visibility: boolean, duration: string): Promise<TournamentDocument> => {
@@ -92,6 +91,18 @@ export const getTournamentByName = async (guildID: string, name: string): Promis
     return TournamentModel.findOne({ guildID: guildID, name: name });
 };
 
+export const isSingleEmoji = (emoji: string): boolean => {
+    return emoji.match(/\p{Emoji_Presentation}/ug) !== null;
+};
+
+export const getDifficultyByEmoji = async (tournament: TournamentDocument, emoji: string): Promise<DifficultyDocument | null> => {
+    if (!isSingleEmoji(emoji)) throw new UserMessageError(`Supplied emoji string ${emoji} is invalid`, `Difficulty must be a single emoji. You used: ${emoji}`);
+    tournament.difficulties.forEach((difficulty: Difficulty) => {
+        if (difficulty.emoji === emoji) return difficulty;
+    });
+    return null;
+};
+
 // UPDATE / PUT
 interface UpdateTournamentParams {
     name?: string;
@@ -123,6 +134,10 @@ export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, ch
     tournament.challenges.push(challenge);
     return tournament.save();
 };
+
+// TODO: Batch creation method for challenges
+// export const addChallengesToTournament = async (tournamentID: Ref<Tournament>, challenges: ChallengeModel[]): Promise<TournamentDocument> => {
+// };
 
 export const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, difficulty: Difficulty): Promise<TournamentDocument> => {
     const tournament = await TournamentModel.findById(tournamentID);
