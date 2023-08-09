@@ -1,9 +1,7 @@
 import { ObjectId } from 'mongodb';
-import { Document } from 'mongoose';
 import { prop, index, getModelForClass } from '@typegoose/typegoose';
 import { Challenge } from './challenge.js';
 import { Difficulty } from './difficulty.js';
-import { BeAnObject, IObjectWithTypegooseFunction } from '@typegoose/typegoose/lib/types.js';
 
 @index({ guildID: 1, name: 1 }, { unique: true })
 export class Tournament {
@@ -38,5 +36,3 @@ export class Tournament {
 }
 
 export const TournamentModel = getModelForClass(Tournament);
-
-export type TournamentDocument = (Document<ObjectId, BeAnObject, Tournament> & Omit<Tournament & Required<{ _id: ObjectId; }>, 'typegooseName'> & IObjectWithTypegooseFunction);

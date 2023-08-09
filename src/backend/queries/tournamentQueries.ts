@@ -3,9 +3,10 @@ import { Tournament, TournamentModel } from '../schemas/tournament.js';
 import { Challenge } from '../schemas/challenge.js';
 import { DuplicateSubdocumentError } from '../../types/customError.js';
 import { Difficulty } from '../schemas/difficulty.js';
+import { TournamentDocument } from 'src/types/customDocument.js';
 
 // CREATE / POST
-export const createTournament = async (guildID: string, name: string, photoURI: string, active: boolean, statusDescription: string, visibility: boolean, duration: string) => {
+export const createTournament = async (guildID: string, name: string, photoURI: string, active: boolean, statusDescription: string, visibility: boolean, duration: string): Promise<TournamentDocument> => {
     return TournamentModel.create({
         guildID: guildID,
         name: name,
@@ -64,7 +65,7 @@ export class TournamentBuilder {
         return this;
     }
 
-    public async buildForGuild(guildID: string): Promise<Tournament> {
+    public async buildForGuild(guildID: string): Promise<TournamentDocument> {
         if (!guildID || !this.name) throw new Error('Error in TournamentBuilder: A required property in {guildID, name} not set.');
         return TournamentModel.create({
             guildID: guildID,
@@ -79,11 +80,11 @@ export class TournamentBuilder {
 }
 
 // READ / GET
-export const getTournamentById = async (id: Ref<Tournament>) => {
+export const getTournamentById = async (id: Ref<Tournament>): Promise<TournamentDocument | null> => {
     return TournamentModel.findById(id);
 };
 
-export const getTournamentsByGuild = async (guildID: string) => {
+export const getTournamentsByGuild = async (guildID: string): Promise<TournamentDocument[] | null> => {
     return TournamentModel.find({ guildID: guildID });
 };
 
@@ -101,7 +102,7 @@ interface UpdateTournamentParams {
     duration?: string;
 }
 
-export const updateTournament = async (id: Ref<Tournament>, name?: string, photoURI?: string, active?: boolean, statusDescription?: string, visibility?: boolean, duration?: string) => {
+export const updateTournament = async (id: Ref<Tournament>, name?: string, photoURI?: string, active?: boolean, statusDescription?: string, visibility?: boolean, duration?: string): Promise<TournamentDocument | null> => {
     const update: UpdateTournamentParams = {};
     if (name !== undefined) update.name = name;
     if (photoURI !== undefined) update.photoURI = photoURI;
@@ -113,7 +114,7 @@ export const updateTournament = async (id: Ref<Tournament>, name?: string, photo
     return TournamentModel.findByIdAndUpdate(id, { $set: update });
 };
 
-export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, challenge: Challenge) => {
+export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, challenge: Challenge): Promise<TournamentDocument> => {
     const tournament = await TournamentModel.findById(tournamentID);
     if (!tournament) throw new Error('Error in addChallengeToTournament: Tournament not found.');
     for (const challenge of tournament.challenges) {
@@ -123,7 +124,7 @@ export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, ch
     return tournament.save();
 };
 
-export const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, difficulty: Difficulty) => {
+export const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, difficulty: Difficulty): Promise<TournamentDocument> => {
     const tournament = await TournamentModel.findById(tournamentID);
     if (!tournament) throw new Error('Error in addDifficultyToTournament: Tournament not found.');
     for (const difficulty of tournament.difficulties) {
@@ -134,6 +135,6 @@ export const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, d
 };
 
 // DELETE
-export const deleteTournament = async (id: Ref<Tournament>) => {
+export const deleteTournament = async (id: Ref<Tournament>): Promise<TournamentDocument | null> => {
     return TournamentModel.findByIdAndDelete(id);
 };
