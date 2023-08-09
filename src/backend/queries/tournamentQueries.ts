@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb';
 import { Ref } from '@typegoose/typegoose';
 import { Tournament, TournamentModel } from '../schemas/tournament.js';
 import { DuplicateSubdocumentError, UserMessageError } from '../../types/customError.js';
@@ -79,7 +80,7 @@ export class TournamentBuilder {
 }
 
 // READ / GET
-export const getTournamentById = async (id: Ref<Tournament>): Promise<TournamentDocument | null> => {
+export const getTournamentById = async (id: ObjectId): Promise<TournamentDocument | null> => {
     return TournamentModel.findById(id);
 };
 
@@ -125,11 +126,11 @@ export const updateTournament = async (id: Ref<Tournament>, name?: string, photo
     return TournamentModel.findByIdAndUpdate(id, { $set: update });
 };
 
-export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, challenge: Challenge): Promise<TournamentDocument> => {
+export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, challenge: ChallengeDocument): Promise<TournamentDocument> => {
     const tournament = await TournamentModel.findById(tournamentID);
     if (!tournament) throw new Error('Error in addChallengeToTournament: Tournament not found.');
-    for (const challenge of tournament.challenges) {
-        if (challenge.name === challenge.name) throw new DuplicateSubdocumentError('Error in addChallengeToTournament: Challenge already exists in tournament.');
+    for (const existingChallenge of tournament.challenges) {
+        if (existingChallenge.name === challenge.name) throw new DuplicateSubdocumentError(`Error in addChallengeToTournament: Challenge already exists in tournament. DEBUG: ${tournament.challenges}`);
     }
     tournament.challenges.push(challenge);
     return tournament.save();
