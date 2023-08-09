@@ -23,5 +23,9 @@
         }],
         "space-in-parens": ["error", "never"],
         "space-infix-ops": "error"
-    }
+    },
+    "ignorePatterns": [
+        "node_modules/",
+        "dist/"
+    ]
 }
