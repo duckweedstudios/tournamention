@@ -87,6 +87,10 @@ export const getTournamentsByGuild = async (guildID: string) => {
     return TournamentModel.find({ guildID: guildID });
 };
 
+export const getTournamentByName = async (guildID: string, name: string): Promise<TournamentDocument | null> => {
+    return TournamentModel.findOne({ guildID: guildID, name: name });
+};
+
 // UPDATE / PUT
 interface UpdateTournamentParams {
     name?: string;
