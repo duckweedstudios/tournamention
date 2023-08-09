@@ -1,25 +1,27 @@
 import { ObjectId } from 'mongodb';
 import { Document } from 'mongoose';
-import { prop, getModelForClass, /*DocumentType*/ } from '@typegoose/typegoose';
-import { TournamentModel, Tournament } from './tournament.js';
+import { prop, getModelForClass } from '@typegoose/typegoose';
+import { TournamentModel, Tournament, TournamentDocument } from './tournament.js';
 
 export class GuildSettings {
     @prop({ required: true, unique: true })
     public guildID!: string;
 
-    public async getCurrentTournament(/*this: DocumentType<GuildSettings>*/) {
+    public async getCurrentTournament() {
+        // TODO: default value in reduce may not work in practice
+        // TODO: test performance WRT frequent .toObject() calls, would a separate array of Tournament be faster?
         const guildTournaments = (await TournamentModel.find({ guildID: this.guildID }));
         const activeTournament = guildTournaments
-            .map((t: Document<ObjectId, unknown, Tournament>) => {
-                return t.toObject();
+            .filter((t: TournamentDocument) => {
+                return t.toObject().active;
             })
-            .filter((t: Tournament) => {
-                return t.active;
-            })
-            .reduce((prev: Tournament, curr: Tournament) => {
-                // TODO: this may not work
-                return !prev.name && prev._id.getTimestamp().getTime() > curr._id.getTimestamp().getTime() ? prev : curr;
-            }, new Tournament());
+            .reduce((prev: TournamentDocument, curr: TournamentDocument) => {
+                const prevTournament: Tournament = prev.toObject();
+                const currTournament: Tournament = curr.toObject();
+                return !prevTournament.name 
+                    && prevTournament._id.getTimestamp().getTime() > currTournament._id.getTimestamp().getTime() 
+                    ? prev : curr;
+            }, new Document<ObjectId, unknown, Tournament>() as TournamentDocument);
         return activeTournament ? activeTournament : null;
     }
 }
