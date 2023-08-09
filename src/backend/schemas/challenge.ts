@@ -11,8 +11,8 @@ export class Challenge {
     @prop({ required: true })
     public description!: string;
 
-    @prop({ required: true, ref: () => Difficulty })
-    public difficulty!: Ref<Difficulty>;
+    @prop({ ref: () => Difficulty })
+    public difficulty?: Ref<Difficulty>;
 
     @prop({ required: true })
     public game!: string;
