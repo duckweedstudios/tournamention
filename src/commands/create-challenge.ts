@@ -168,7 +168,6 @@ const CreateChallengeCommand = new CustomCommand(
                 interaction.reply({ content: `❌ ${err.userMessage}`, ephemeral: true });
                 return;
             } else if (err instanceof DuplicateSubdocumentError) { // TODO: refactor this logic to have a UserFacingError thrown that provides this message
-                console.error(err); // TODO delete
                 interaction.reply({ content: `❌ The challenge was not created. A challenge with that name already exists in the tournament.`, ephemeral: true });
                 return;
             }

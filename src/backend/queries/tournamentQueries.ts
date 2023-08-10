@@ -130,7 +130,7 @@ export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, ch
     const tournament = await TournamentModel.findById(tournamentID);
     if (!tournament) throw new Error('Error in addChallengeToTournament: Tournament not found.');
     for (const existingChallenge of tournament.challenges) {
-        if (existingChallenge.name === challenge.name) throw new DuplicateSubdocumentError(`Error in addChallengeToTournament: Challenge already exists in tournament. DEBUG: ${tournament.challenges}`);
+        if (existingChallenge.name === challenge.name) throw new DuplicateSubdocumentError(`Error in addChallengeToTournament: Challenge already exists in tournament.`);
     }
     tournament.challenges.push(challenge);
     return tournament.save();
