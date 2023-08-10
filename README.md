@@ -2,6 +2,13 @@
 Organize and run your own gaming challenges for friends to complete with this Discord.js bot.
 
 ## Developer Setup
+Prerequisites:
+- [Node.js](https://nodejs.org/en/)
+- [Git](https://git-scm.com/downloads)
+- [VSCode](https://code.visualstudio.com/download)
+- [MongoDB](https://www.mongodb.com/try/download/community) (recommended)
+- [MongoDB Compass](https://www.mongodb.com/try/download/compass) (recommended) or another MongoDB GUI
+
 1. **Clone the repository**: in a terminal (e.g. Git bash)
 ```
 cd Documents
@@ -16,11 +23,12 @@ npm install
 - ESLint
 - Prettier
 4. **Create a Discord bot** from the Discord Developer Portal
-5. **Create a .env file** in the root directory of the project and add the following:
+5. **Create a MongoDB database** called tournamentionDB locally or remotely on MongoDB Atlas
+6. **Create a .env file** in the root directory of the project and add the following:
 ```
 DISCORD_TOKEN=<your bot token>
 ```
-6. **Run the bot**: in a terminal
+7. **Run the bot**: in a terminal
 ```
 npm start
 ```
