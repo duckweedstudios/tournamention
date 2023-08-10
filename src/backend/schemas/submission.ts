@@ -14,7 +14,7 @@ export enum SubmissionStatus {
 export class ReviewNote {
     _id!: ObjectId;
 
-    @prop({ required: true, type: () => Judge})
+    @prop({ required: true, ref: () => Judge})
     public judgeID!: Ref<Judge>;
 
     @prop({ required: true })
@@ -25,10 +25,10 @@ export class ReviewNote {
 }
 
 export class Submission {
-    @prop({ required: true, type: () => Challenge, index: true })
+    @prop({ required: true, ref: () => Challenge, index: true })
     public challengeID!: Ref<Challenge>;
 
-    @prop({ required: true, type: () => Contestant, index: true })
+    @prop({ required: true, ref: () => Contestant, index: true })
     public contestantID!: Ref<Contestant>;
 
     @prop({ required: true })
