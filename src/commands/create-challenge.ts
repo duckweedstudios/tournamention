@@ -1,31 +1,13 @@
 import { ObjectId } from 'mongodb';
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOptionResolver } from 'discord.js';
+import { CommandInteraction } from 'discord.js';
 import { CustomCommand } from '../types/customCommand.js';
 import { addChallengeToTournament, getDifficultyByEmoji, getTournamentById, getTournamentByName } from '../backend/queries/tournamentQueries.js';
 import { ChallengeDocument, DifficultyDocument, TournamentDocument } from '../types/customDocument.js';
 import { Challenge, ChallengeModel } from '../backend/schemas/challenge.js';
 import { DuplicateSubdocumentError, UserFacingError } from '../types/customError.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-
-/**
- * An alias for the type of `interaction.options`.
- */
-type CommandInteractionOptionResolverAlias = Omit<
-CommandInteractionOptionResolver,
-| 'getMessage'
-| 'getFocused'
-| 'getMentionable'
-| 'getRole'
-| 'getAttachment'
-| 'getNumber'
-| 'getInteger'
-| 'getString'
-| 'getChannel'
-| 'getBoolean'
-| 'getSubcommandGroup'
-| 'getSubcommand'
->;
+import { CommandInteractionOptionResolverAlias } from '../types/discordTypeAlias.js';
 
 class ChallengeCreationError extends UserFacingError {
     constructor(message: string, userMessage: string) {
