@@ -93,7 +93,9 @@ export const getTournamentByName = async (guildID: string, name: string): Promis
 };
 
 export const isSingleEmoji = (emoji: string): boolean => {
-    return emoji.match(/\p{Emoji_Presentation}/ug) !== null;
+    const emojiRegex = /\p{Emoji_Presentation}/ug;
+    const matches = emoji.match(emojiRegex);
+    return matches !== null && matches.length === 1;
 };
 
 export const getDifficultyByEmoji = async (tournament: TournamentDocument, emoji: string): Promise<DifficultyDocument | null> => {
@@ -143,8 +145,8 @@ export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, ch
 export const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, difficulty: Difficulty): Promise<TournamentDocument> => {
     const tournament = await TournamentModel.findById(tournamentID);
     if (!tournament) throw new Error('Error in addDifficultyToTournament: Tournament not found.');
-    for (const difficulty of tournament.difficulties) {
-        if (difficulty.emoji === difficulty.emoji) throw new DuplicateSubdocumentError('Error in addDifficultyToTournament: Difficulty already exists in tournament.');
+    for (const existingDifficulty of tournament.difficulties) {
+        if (existingDifficulty.emoji === difficulty.emoji) throw new DuplicateSubdocumentError('Error in addDifficultyToTournament: Difficulty already exists in tournament.');
     }
     tournament.difficulties.push(difficulty);
     return tournament.save();
