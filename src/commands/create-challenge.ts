@@ -54,7 +54,7 @@ class ChallengeFactory {
      * A batch creation method for Challenge subdocuments. In case of duplicates in the batch or
      * existing Challenges, the method will throw `BatchChallengeCreationError` and no Challenges
      * will be created.
-     * @param challenges An array of ChallengeModel objects to be created and added to the Tournament.
+     * @param challenges An array of freshly-created ChallengeDocument objects to be added to the Tournament.
      * @returns An array of TournamentDocuments. Since order isn't guaranteed and since batch
      * creation fails or succeeds together, the return value isn't useful outside of `await`ing completion
      * completion in calling code.
