@@ -122,7 +122,7 @@ class ChallengeCreator {
             name: this.name,
             description: this.description,
             game: this.game,
-            difficulty: difficultyDocument!._id,
+            difficulty: (difficultyDocument ? difficultyDocument._id : difficultyDocument),
             visibility: this.visible,
         })]);
     }
