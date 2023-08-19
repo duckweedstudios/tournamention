@@ -26,12 +26,10 @@
         "esm": true,
         "compilerOptions": {
             "module": "ES2022",
-            "target": "ES2022"
-        }
+            "target": "ES2022",
+            "skipLibCheck": true,
+        },
     },
-    "files": [
-        "src/index.ts"
-    ],
     "include": [
         "src/**/*.ts"
     ],
