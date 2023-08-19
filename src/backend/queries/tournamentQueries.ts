@@ -2,7 +2,7 @@ import { ObjectId } from 'mongodb';
 import { Ref } from '@typegoose/typegoose';
 import { Tournament, TournamentModel } from '../schemas/tournament.js';
 import { DuplicateSubdocumentError, UserMessageError } from '../../types/customError.js';
-import { Difficulty } from '../schemas/difficulty.js';
+import { Difficulty, DifficultyModel } from '../schemas/difficulty.js';
 import { ChallengeDocument, DifficultyDocument, TournamentDocument } from '../../types/customDocument.js';
 
 // CREATE / POST
@@ -98,11 +98,17 @@ export const isSingleEmoji = (emoji: string): boolean => {
     return matches !== null && matches.length === 1;
 };
 
+export const getDifficultyByID = async (id: ObjectId): Promise<DifficultyDocument | null> => {
+    return DifficultyModel.findById(id);
+};
+
 export const getDifficultyByEmoji = async (tournament: TournamentDocument, emoji: string): Promise<DifficultyDocument | null> => {
     if (!isSingleEmoji(emoji)) throw new UserMessageError(`Supplied emoji string ${emoji} is invalid`, `Difficulty must be a single emoji. You used: ${emoji}`);
-    tournament.difficulties.forEach((difficulty: Difficulty) => {
-        if (difficulty.emoji === emoji) return difficulty;
-    });
+    for (const difficulty of tournament.difficulties) {
+        if (difficulty.emoji === emoji) {
+            return getDifficultyByID(difficulty._id);
+        }
+    }
     return null;
 };
 

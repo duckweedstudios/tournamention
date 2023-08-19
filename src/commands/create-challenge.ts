@@ -115,14 +115,14 @@ class ChallengeCreator {
         let difficultyDocument: DifficultyDocument | null = null;
         if (this.difficulty) {
             difficultyDocument = await getDifficultyByEmoji(tournament!, this.difficulty);
-            if (!difficultyDocument) throw new ChallengeCreationError(`Difficulty ${this.difficulty} not found in tournament ${this.tournamentName}`, `The challenge was not created. The difficulty you chose, ${this.difficulty}, does not exist in the tournament **${this.tournamentName}**. Remember that difficulties are identified by single emojis.`);
+            if (!difficultyDocument) throw new ChallengeCreationError(`Difficulty ${this.difficulty} not found in tournament ${this.tournamentName}`, `The challenge was not created. The difficulty you chose, ${this.difficulty}, does not exist in the tournament **${tournament!.name}**. Remember that difficulties are identified by single emojis.`);
         }
         
         await new ChallengeFactory(tournament!._id).createChallenges([await ChallengeModel.create({
             name: this.name,
             description: this.description,
             game: this.game,
-            difficulty: difficultyDocument,
+            difficulty: difficultyDocument!._id,
             visibility: this.visible,
         })]);
     }
