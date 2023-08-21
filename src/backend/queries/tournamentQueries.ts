@@ -122,14 +122,18 @@ interface UpdateTournamentParams {
     duration?: string;
 }
 
-export const updateTournament = async (id: Ref<Tournament>, name?: string, photoURI?: string, active?: boolean, statusDescription?: string, visibility?: boolean, duration?: string): Promise<TournamentDocument | null> => {
+export const updateTournament = async (id: ObjectId, newName?: string, photoURI?: string, visibility?: boolean, active?: boolean, statusDescription?: string, duration?: string): Promise<TournamentDocument | null> => {
+    // TODO: This method is quite messy. Calling code (eg. edit-tournament.ts) should be refactored to exclude unnecessary parameters.
+    // Recall before refactoring that this method is meant to 
+    // (1) mimic an API endpoint
+    // (2) manipulate some object for the Mongoose $set operator (which isn't quite so simple in TS).
     const update: UpdateTournamentParams = {};
-    if (name !== undefined) update.name = name;
-    if (photoURI !== undefined) update.photoURI = photoURI;
-    if (active !== undefined) update.active = active;
-    if (statusDescription !== undefined) update.statusDescription = statusDescription;
-    if (visibility !== undefined) update.visibility = visibility;
-    if (duration !== undefined) update.duration = duration;
+    if (newName !== null && newName !== undefined) update.name = newName;
+    if (photoURI !== null && photoURI !== undefined) update.photoURI = photoURI;
+    if (active !== null && active !== undefined) update.active = active;
+    if (statusDescription !== null && statusDescription !== undefined) update.statusDescription = statusDescription;
+    if (visibility !== null && visibility !== undefined) update.visibility = visibility;
+    if (duration !== null && duration !== undefined) update.duration = duration;
 
     return TournamentModel.findByIdAndUpdate(id, { $set: update });
 };
