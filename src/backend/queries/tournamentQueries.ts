@@ -4,6 +4,7 @@ import { Tournament, TournamentModel } from '../schemas/tournament.js';
 import { DuplicateSubdocumentError, UserMessageError } from '../../types/customError.js';
 import { Difficulty, DifficultyModel } from '../schemas/difficulty.js';
 import { ChallengeDocument, DifficultyDocument, TournamentDocument } from '../../types/customDocument.js';
+import { UpdateTournamentParams } from '../../types/apiPayloadObjects.js';
 
 // CREATE / POST
 export const createTournament = async (guildID: string, name: string, photoURI: string, active: boolean, statusDescription: string, visibility: boolean, duration: string): Promise<TournamentDocument> => {
@@ -113,24 +114,7 @@ export const getDifficultyByEmoji = async (tournament: TournamentDocument, emoji
 };
 
 // UPDATE / PUT
-interface UpdateTournamentParams {
-    name?: string;
-    photoURI?: string;
-    active?: boolean;
-    statusDescription?: string;
-    visibility?: boolean;
-    duration?: string;
-}
-
-export const updateTournament = async (id: Ref<Tournament>, name?: string, photoURI?: string, active?: boolean, statusDescription?: string, visibility?: boolean, duration?: string): Promise<TournamentDocument | null> => {
-    const update: UpdateTournamentParams = {};
-    if (name !== undefined) update.name = name;
-    if (photoURI !== undefined) update.photoURI = photoURI;
-    if (active !== undefined) update.active = active;
-    if (statusDescription !== undefined) update.statusDescription = statusDescription;
-    if (visibility !== undefined) update.visibility = visibility;
-    if (duration !== undefined) update.duration = duration;
-
+export const updateTournament = async (id: ObjectId, update: UpdateTournamentParams): Promise<TournamentDocument | null> => {
     return TournamentModel.findByIdAndUpdate(id, { $set: update });
 };
 
