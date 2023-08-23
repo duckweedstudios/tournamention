@@ -33,12 +33,15 @@ const editTournament = async (guildID: string, options: CommandInteractionOption
     if (!tournament) throw new EditTournamentError(`Tournament ${name} not found in guild ${guildID}.`, `That tournament, **${name}**, was not found.`);
     return updateTournament(
         tournament._id, 
-        (newName ? newName : tournament.name),
-        (photoURI ? photoURI : tournament.photoURI),
-        ((visible !== null) ? visible : tournament.visibility), 
-        ((active !== null) ? active : tournament.active), 
-        (statusDescription ? statusDescription : tournament.statusDescription), 
-        (duration ? duration : tournament.duration)
+        // Conditionally add properties to the object. It would be almost equivalent to assign some but with the value undefined
+        {
+            ...(newName && { name: newName }),
+            ...(photoURI && { photoURI: photoURI }),
+            ...(active !== null && { active: active }),
+            ...(visible !== null && { visibility: visible }),
+            ...(statusDescription && { statusDescription: statusDescription }),
+            ...(duration && { duration: duration }),
+        }
     );
 };
 
