@@ -4,7 +4,7 @@ import { CustomCommand } from '../types/customCommand.js';
 import { UserFacingError } from '../types/customError.js';
 import { getTournamentByName } from '../backend/queries/tournamentQueries.js';
 import { CommandInteractionOptionResolverAlias } from '../types/discordTypeAlias.js';
-import { ChallengeDocument, TournamentDocument } from '../types/customDocument.js';
+import { ChallengeDocument, DifficultyDocument, TournamentDocument } from '../types/customDocument.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
 import { updateChallengeById } from '../backend/queries/challengeQueries.js';
 import { Difficulty } from '../backend/schemas/difficulty.js';
@@ -51,16 +51,15 @@ const editChallenge = async (guildID: string, options: CommandInteractionOptionR
     }
 
     // Resolve desired challenge
-    const challenge = tournament.challenges.find(challenge => challenge.name === name);
+    const challenge = (await tournament.get('resolvingChallenges')).find((c: ChallengeDocument) => c.name === name);
     if (!challenge) throw new EditChallengeError(`Challenge ${name} not found in tournament ${tournamentName}.`, `That challenge, **${name}**, was not found in the tournament **${tournamentName}**.`);
 
     // Resolve desired difficulty
     let difficultyObject: Difficulty | undefined;
     if (difficulty) {
-        difficultyObject = await tournament.difficulties.find(difficultyDocument => difficultyDocument.emoji === difficulty);
+        difficultyObject = await tournament.get('resolvedDifficulties').find((d: DifficultyDocument) => d.emoji === difficulty);
         if (!difficultyObject) throw new EditChallengeError(`Difficulty ${difficulty} not found in tournament ${tournamentName}`, `The challenge was not edited. The difficulty you chose, ${difficulty}, does not exist in the tournament **${tournamentName}**. Remember that difficulties are identified by single emojis.`);
     }
-    console.log(`${difficulty} ${difficultyObject} ${challenge._id}`);
 
     return updateChallengeById(
         challenge._id,
@@ -96,8 +95,8 @@ const EditChallengeCommand = new CustomCommand(
                 interaction.reply({ content: `❌ ${err.userMessage}`, ephemeral: true });
                 return;
             }
-            console.error(`Error in edit-tournament.ts: ${err}`);
-            interaction.reply({ content: `❌ There was an error while updating the tournament!`, ephemeral: true });
+            console.error(`Error in edit-challenge.ts: ${err}`);
+            interaction.reply({ content: `❌ There was an error while updating the challenge!`, ephemeral: true });
         }
     }
 );

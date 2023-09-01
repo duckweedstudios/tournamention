@@ -43,8 +43,8 @@ class DifficultyFactory {
         if (!tournamentDocument) throw new DifficultyCreationError(`Tournament with ID ${this.tournamentID} does not exist.`, `The difficult${singular ? 'y was' : 'ies were'} not added. The tournament does not exist.`);
 
         // Check for duplicate difficulty emojis both in the batch and in the existing challenges.
-        difficulties.forEach((newDifficulty: Difficulty) => {
-            if (tournamentDocument.difficulties.includes(newDifficulty))
+        difficulties.forEach(async (newDifficulty: Difficulty) => {
+            if ((await tournamentDocument.get('resolvingDifficulties')).includes(newDifficulty))
                 throw new BatchDifficultyCreationError(`Challenge ${newDifficulty.emoji} already exists in tournament ${tournamentDocument.name}.`,
                     `The difficult${singular ? 'y was' : 'ies were'} not added. A difficulty with the emoji ${newDifficulty.emoji} already exists in tournament **${tournamentDocument.name}**.`);
             if (difficulties.filter((d: Difficulty) => d.emoji === newDifficulty.emoji).length > 1)
