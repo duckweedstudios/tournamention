@@ -47,8 +47,8 @@ class ChallengeFactory {
         if (!tournamentDocument) throw new ChallengeCreationError(`Tournament with ID ${this.tournamentID} does not exist.`, `The challenge${singular ? ' was' : 's were'} not added. The tournament does not exist.`);
 
         // Check for duplicate challenge names both in the batch and in the existing challenges.
-        challenges.forEach((newChallenge: Challenge) => {
-            if (tournamentDocument.challenges.includes(newChallenge))
+        challenges.forEach(async (newChallenge: Challenge) => {
+            if ((await tournamentDocument.get('resolvingChallenges')).includes(newChallenge))
                 throw new BatchChallengeCreationError(`Challenge ${newChallenge.name} already exists in tournament ${tournamentDocument.name}.`,
                     `The challenge${singular ? ' was' : 's were'} not added. A challenge with the name ${newChallenge.name} already exists in tournament **${tournamentDocument.name}**.`);
             if (challenges.filter((c: Challenge) => c.name === newChallenge.name).length > 1)
