@@ -105,7 +105,7 @@ export const getDifficultyByID = async (id: ObjectId): Promise<DifficultyDocumen
 
 export const getDifficultyByEmoji = async (tournament: TournamentDocument, emoji: string): Promise<DifficultyDocument | null> => {
     if (!isSingleEmoji(emoji)) throw new UserMessageError(`Supplied emoji string ${emoji} is invalid`, `Difficulty must be a single emoji. You used: ${emoji}`);
-    const resolvedDifficulties = await DifficultyModel.find({ _id: { $in: tournament.difficulties } }) as DifficultyDocument[];
+    const resolvedDifficulties = await tournament.get('resolvingDifficulties') as DifficultyDocument[];
     if (!resolvedDifficulties) throw new Error(`Error in tournamentQueries.ts: Could not get difficulties for tournament ${tournament._id}`);
     for (const difficulty of resolvedDifficulties) {
         if (difficulty.emoji === emoji) {
