@@ -2,8 +2,9 @@ import { ObjectId } from 'mongodb';
 import { Ref } from '@typegoose/typegoose';
 import { Tournament, TournamentModel } from '../schemas/tournament.js';
 import { DuplicateSubdocumentError, UserMessageError } from '../../types/customError.js';
-import { Difficulty } from '../schemas/difficulty.js';
+import { DifficultyModel } from '../schemas/difficulty.js';
 import { ChallengeDocument, DifficultyDocument, TournamentDocument } from '../../types/customDocument.js';
+import { UpdateTournamentParams } from '../../types/apiPayloadObjects.js';
 
 // CREATE / POST
 export const createTournament = async (guildID: string, name: string, photoURI: string, active: boolean, statusDescription: string, visibility: boolean, duration: string): Promise<TournamentDocument> => {
@@ -93,43 +94,37 @@ export const getTournamentByName = async (guildID: string, name: string): Promis
 };
 
 export const isSingleEmoji = (emoji: string): boolean => {
-    return emoji.match(/\p{Emoji_Presentation}/ug) !== null;
+    const emojiRegex = /\p{Emoji_Presentation}/ug;
+    const matches = emoji.match(emojiRegex);
+    return matches !== null && matches.length === 1;
+};
+
+export const getDifficultyByID = async (id: ObjectId): Promise<DifficultyDocument | null> => {
+    return DifficultyModel.findById(id);
 };
 
 export const getDifficultyByEmoji = async (tournament: TournamentDocument, emoji: string): Promise<DifficultyDocument | null> => {
     if (!isSingleEmoji(emoji)) throw new UserMessageError(`Supplied emoji string ${emoji} is invalid`, `Difficulty must be a single emoji. You used: ${emoji}`);
-    tournament.difficulties.forEach((difficulty: Difficulty) => {
-        if (difficulty.emoji === emoji) return difficulty;
-    });
+    const resolvedDifficulties = await tournament.get('resolvingDifficulties') as DifficultyDocument[];
+    if (!resolvedDifficulties) throw new Error(`Error in tournamentQueries.ts: Could not get difficulties for tournament ${tournament._id}`);
+    for (const difficulty of resolvedDifficulties) {
+        if (difficulty.emoji === emoji) {
+            return getDifficultyByID(difficulty._id);
+        }
+    }
     return null;
 };
 
 // UPDATE / PUT
-interface UpdateTournamentParams {
-    name?: string;
-    photoURI?: string;
-    active?: boolean;
-    statusDescription?: string;
-    visibility?: boolean;
-    duration?: string;
-}
-
-export const updateTournament = async (id: Ref<Tournament>, name?: string, photoURI?: string, active?: boolean, statusDescription?: string, visibility?: boolean, duration?: string): Promise<TournamentDocument | null> => {
-    const update: UpdateTournamentParams = {};
-    if (name !== undefined) update.name = name;
-    if (photoURI !== undefined) update.photoURI = photoURI;
-    if (active !== undefined) update.active = active;
-    if (statusDescription !== undefined) update.statusDescription = statusDescription;
-    if (visibility !== undefined) update.visibility = visibility;
-    if (duration !== undefined) update.duration = duration;
-
+export const updateTournament = async (id: ObjectId, update: UpdateTournamentParams): Promise<TournamentDocument | null> => {
     return TournamentModel.findByIdAndUpdate(id, { $set: update });
 };
 
 export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, challenge: ChallengeDocument): Promise<TournamentDocument> => {
     const tournament = await TournamentModel.findById(tournamentID);
     if (!tournament) throw new Error('Error in addChallengeToTournament: Tournament not found.');
-    for (const existingChallenge of tournament.challenges) {
+    const resolvedChallenges = await tournament.get('resolvingChallenges') as ChallengeDocument[];
+    for (const existingChallenge of resolvedChallenges) {
         if (existingChallenge.name === challenge.name) throw new DuplicateSubdocumentError(`Error in addChallengeToTournament: Challenge already exists in tournament.`);
     }
     tournament.challenges.push(challenge);
@@ -140,17 +135,19 @@ export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, ch
 // export const addChallengesToTournament = async (tournamentID: Ref<Tournament>, challenges: ChallengeModel[]): Promise<TournamentDocument> => {
 // };
 
-export const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, difficulty: Difficulty): Promise<TournamentDocument> => {
+export const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, difficulty: DifficultyDocument): Promise<TournamentDocument> => {
     const tournament = await TournamentModel.findById(tournamentID);
     if (!tournament) throw new Error('Error in addDifficultyToTournament: Tournament not found.');
-    for (const difficulty of tournament.difficulties) {
-        if (difficulty.emoji === difficulty.emoji) throw new DuplicateSubdocumentError('Error in addDifficultyToTournament: Difficulty already exists in tournament.');
+    const resolvedDifficulties = await tournament.get('resolvingDifficulties') as DifficultyDocument[];
+    for (const existingDifficulty of resolvedDifficulties) {
+        if (existingDifficulty.emoji === difficulty.emoji) throw new DuplicateSubdocumentError('Error in addDifficultyToTournament: Difficulty already exists in tournament.');
     }
     tournament.difficulties.push(difficulty);
     return tournament.save();
 };
 
 // DELETE
+// TODO: Delete all challenges and difficulties from tournament
 export const deleteTournament = async (id: Ref<Tournament>): Promise<TournamentDocument | null> => {
     return TournamentModel.findByIdAndDelete(id);
 };

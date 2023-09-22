@@ -1,8 +1,7 @@
-import { ReviewNoteModel, Submission, SubmissionModel, SubmissionStatus } from '../schemas/submission';
+import { Submission, SubmissionModel } from '../schemas/submission';
 import { Ref } from '@typegoose/typegoose';
 import { Challenge } from '../schemas/challenge';
 import { Contestant } from '../schemas/contestant';
-import { Judge } from '../schemas/judge';
 
 // CREATE / POST
 export const createSubmission = async (challengeID: Ref<Challenge>, contestantID: Ref<Contestant>, proof: string) => {
@@ -27,12 +26,13 @@ export const getSubmissionsForChallenge = async (challengeID: Ref<Challenge>) =>
 };
 
 // UPDATE / PUT
-export const addReviewNoteToSubmission = async (submission: Ref<Submission>, judgeID: Ref<Judge>, note: string, reviewStatus: SubmissionStatus) => {
-    return SubmissionModel.findOneAndUpdate({ _id: submission}, {
-        $push: {
-            reviewNotes: new ReviewNoteModel({ judgeID: judgeID, note: note, status: reviewStatus }),
-        }
-    });
-};
+// TODO: Use refs instead of nested documents (#37)
+// export const addReviewNoteToSubmission = async (submission: Ref<Submission>, judgeID: Ref<Judge>, note: string, reviewStatus: SubmissionStatus) => {
+//     return SubmissionModel.findOneAndUpdate({ _id: submission}, {
+//         $push: {
+//             reviewNotes: new ReviewNoteModel({ judgeID: judgeID, note: note, status: reviewStatus }),
+//         }
+//     });
+// };
 
 // DELETE

@@ -1,31 +1,13 @@
 import { ObjectId } from 'mongodb';
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOptionResolver } from 'discord.js';
+import { CommandInteraction } from 'discord.js';
 import { CustomCommand } from '../types/customCommand.js';
 import { addChallengeToTournament, getDifficultyByEmoji, getTournamentById, getTournamentByName } from '../backend/queries/tournamentQueries.js';
 import { ChallengeDocument, DifficultyDocument, TournamentDocument } from '../types/customDocument.js';
 import { Challenge, ChallengeModel } from '../backend/schemas/challenge.js';
 import { DuplicateSubdocumentError, UserFacingError } from '../types/customError.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-
-/**
- * An alias for the type of `interaction.options`.
- */
-type CommandInteractionOptionResolverAlias = Omit<
-CommandInteractionOptionResolver,
-| 'getMessage'
-| 'getFocused'
-| 'getMentionable'
-| 'getRole'
-| 'getAttachment'
-| 'getNumber'
-| 'getInteger'
-| 'getString'
-| 'getChannel'
-| 'getBoolean'
-| 'getSubcommandGroup'
-| 'getSubcommand'
->;
+import { CommandInteractionOptionResolverAlias } from '../types/discordTypeAlias.js';
 
 class ChallengeCreationError extends UserFacingError {
     constructor(message: string, userMessage: string) {
@@ -54,7 +36,7 @@ class ChallengeFactory {
      * A batch creation method for Challenge subdocuments. In case of duplicates in the batch or
      * existing Challenges, the method will throw `BatchChallengeCreationError` and no Challenges
      * will be created.
-     * @param challenges An array of ChallengeModel objects to be created and added to the Tournament.
+     * @param challenges An array of freshly-created ChallengeDocument objects to be added to the Tournament.
      * @returns An array of TournamentDocuments. Since order isn't guaranteed and since batch
      * creation fails or succeeds together, the return value isn't useful outside of `await`ing completion
      * completion in calling code.
@@ -65,8 +47,8 @@ class ChallengeFactory {
         if (!tournamentDocument) throw new ChallengeCreationError(`Tournament with ID ${this.tournamentID} does not exist.`, `The challenge${singular ? ' was' : 's were'} not added. The tournament does not exist.`);
 
         // Check for duplicate challenge names both in the batch and in the existing challenges.
-        challenges.forEach((newChallenge: Challenge) => {
-            if (tournamentDocument.challenges.includes(newChallenge))
+        challenges.forEach(async (newChallenge: Challenge) => {
+            if ((await tournamentDocument.get('resolvingChallenges')).includes(newChallenge))
                 throw new BatchChallengeCreationError(`Challenge ${newChallenge.name} already exists in tournament ${tournamentDocument.name}.`,
                     `The challenge${singular ? ' was' : 's were'} not added. A challenge with the name ${newChallenge.name} already exists in tournament **${tournamentDocument.name}**.`);
             if (challenges.filter((c: Challenge) => c.name === newChallenge.name).length > 1)
@@ -133,14 +115,14 @@ class ChallengeCreator {
         let difficultyDocument: DifficultyDocument | null = null;
         if (this.difficulty) {
             difficultyDocument = await getDifficultyByEmoji(tournament!, this.difficulty);
-            if (!difficultyDocument) throw new ChallengeCreationError(`Difficulty ${this.difficulty} not found in tournament ${this.tournamentName}`, `The challenge was not created. The difficulty you chose, ${this.difficulty}, does not exist in the tournament **${this.tournamentName}**. Remember that difficulties are identified by single emojis.`);
+            if (!difficultyDocument) throw new ChallengeCreationError(`Difficulty ${this.difficulty} not found in tournament ${this.tournamentName}`, `The challenge was not created. The difficulty you chose, ${this.difficulty}, does not exist in the tournament **${tournament!.name}**. Remember that difficulties are identified by single emojis.`);
         }
         
         await new ChallengeFactory(tournament!._id).createChallenges([await ChallengeModel.create({
             name: this.name,
             description: this.description,
             game: this.game,
-            difficulty: difficultyDocument,
+            difficulty: (difficultyDocument ? difficultyDocument._id : difficultyDocument),
             visibility: this.visible,
         })]);
     }

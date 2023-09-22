@@ -4,7 +4,7 @@ import { CommandInteraction } from 'discord.js';
 import { CustomCommand } from '../types/customCommand.js';
 import { TournamentBuilder } from '../backend/queries/tournamentQueries.js';
 
-const InfoCommand = new CustomCommand(
+const CreateTournamentCommand = new CustomCommand(
     new SlashCommandBuilder()
         .setName('create-tournament')
         .setDescription('Create a new tournament from scratch.')
@@ -46,4 +46,4 @@ const InfoCommand = new CustomCommand(
     }
 );
 
-export default InfoCommand;
+export default CreateTournamentCommand;
