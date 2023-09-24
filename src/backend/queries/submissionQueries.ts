@@ -9,6 +9,7 @@ export const createSubmission = async (challengeID: Ref<Challenge>, contestantID
         challengeID: challengeID,
         contestantID: contestantID,
         proof: proof,
+        reviewNotes: [],
     });
 };
 
@@ -23,6 +24,10 @@ export const getSubmissionsFromContestant = async (contestantID: Ref<Contestant>
 
 export const getSubmissionsForChallenge = async (challengeID: Ref<Challenge>) => {
     return SubmissionModel.find({ challengeID: challengeID });
+};
+
+export const getSubmissionsForChallengeFromContestant = async (challengeId: Ref<Challenge>, contestantId: Ref<Contestant>) => {
+    return SubmissionModel.find({ challengeID: challengeId, contestantID: contestantId });
 };
 
 // UPDATE / PUT
