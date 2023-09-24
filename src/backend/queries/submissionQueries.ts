@@ -1,7 +1,7 @@
-import { Submission, SubmissionModel } from '../schemas/submission';
+import { Submission, SubmissionModel } from '../schemas/submission.js';
 import { Ref } from '@typegoose/typegoose';
-import { Challenge } from '../schemas/challenge';
-import { Contestant } from '../schemas/contestant';
+import { Challenge } from '../schemas/challenge.js';
+import { Contestant } from '../schemas/contestant.js';
 
 // CREATE / POST
 export const createSubmission = async (challengeID: Ref<Challenge>, contestantID: Ref<Contestant>, proof: string) => {
