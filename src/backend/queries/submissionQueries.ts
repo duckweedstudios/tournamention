@@ -1,7 +1,7 @@
-import { Submission, SubmissionModel } from '../schemas/submission';
+import { Submission, SubmissionModel } from '../schemas/submission.js';
 import { Ref } from '@typegoose/typegoose';
-import { Challenge } from '../schemas/challenge';
-import { Contestant } from '../schemas/contestant';
+import { Challenge } from '../schemas/challenge.js';
+import { Contestant } from '../schemas/contestant.js';
 
 // CREATE / POST
 export const createSubmission = async (challengeID: Ref<Challenge>, contestantID: Ref<Contestant>, proof: string) => {
@@ -9,6 +9,7 @@ export const createSubmission = async (challengeID: Ref<Challenge>, contestantID
         challengeID: challengeID,
         contestantID: contestantID,
         proof: proof,
+        reviewNotes: [],
     });
 };
 
@@ -23,6 +24,10 @@ export const getSubmissionsFromContestant = async (contestantID: Ref<Contestant>
 
 export const getSubmissionsForChallenge = async (challengeID: Ref<Challenge>) => {
     return SubmissionModel.find({ challengeID: challengeID });
+};
+
+export const getSubmissionsForChallengeFromContestant = async (challengeId: Ref<Challenge>, contestantId: Ref<Contestant>) => {
+    return SubmissionModel.find({ challengeID: challengeId, contestantID: contestantId });
 };
 
 // UPDATE / PUT
