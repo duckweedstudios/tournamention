@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteraction, CommandInteractionOption, User } from 'discord.js';
 import { CustomCommand } from '../types/customCommand.js';
-import { NonexistentJointGuildAndMemberError, OptionValidationError, OptionValidationErrorStatus, UnknownError, UserFacingError } from '../types/customError.js';
+import { NonexistentJointGuildAndMemberError, OptionValidationError, OptionValidationErrorStatus, UnknownError } from '../types/customError.js';
 import { setJudgeActive, setOrCreateActiveJudge } from '../backend/queries/profileQueries.js';
 import { LimitedCommandInteraction, limitCommandInteraction } from '../types/limitedCommandInteraction.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithDuoListBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
@@ -55,48 +55,41 @@ type AssignJudgeOutcome = AssignJudgeSuccessJudgeUpdatedOutcome | AssignJudgeSuc
 const assignJudge = async (guildId: string, memberId: string, revoke?: boolean): Promise<AssignJudgeOutcome> => {
     try {
         const result = await (revoke ? setJudgeActive(guildId, memberId, false) : setOrCreateActiveJudge(guildId, memberId));
-        if (result.matchedCount === 1 && result.modifiedCount === 0) {
+        if (result.matchedCount === 1 && result.modifiedCount === 0) return ({
             // The Judge already exists and is already in the desired state
-            return {
-                status: OutcomeStatus.SUCCESS_NO_CHANGE,
-                body: {
-                    data1: [memberId],
-                    data2: [!revoke],
-                }
-            };
-        } else if (result.matchedCount === 1 && result.modifiedCount === 1) {
+            status: OutcomeStatus.SUCCESS_NO_CHANGE,
+            body: {
+                data1: [memberId],
+                data2: [!revoke],
+            },
+        });
+        if (result.matchedCount === 1 && result.modifiedCount === 1) return ({
             // The Judge already exists and was modified to the desired state
-            return {
-                status: AssignJudgeSpecificStatus.SUCCESS_JUDGE_UPDATED,
-                body: {
-                    user: memberId,
-                    active: revoke ? false : true,
-                }
-            };
-        } else if (result.matchedCount === 0 && (result.upsertedCount === 1 || !revoke)) {
+            status: AssignJudgeSpecificStatus.SUCCESS_JUDGE_UPDATED,
+            body: {
+                user: memberId,
+                active: revoke ? false : true,
+            },
+        });
+        if (result.matchedCount === 0 && (result.upsertedCount === 1 || !revoke)) return ({
             // The Judge did not exist and was created with an active status, or they (ineffectually) tried to unrevoke a nonexistent Judge
-            return {
-                status: AssignJudgeSpecificStatus.SUCCESS_JUDGE_CREATED,
-                body: {
-                    user: memberId,
-                }
-            };
-        } else if (result.matchedCount === 0) {
+            status: AssignJudgeSpecificStatus.SUCCESS_JUDGE_CREATED,
+            body: {
+                user: memberId,
+            },
+        });
+        if (result.matchedCount === 0) {
             // The Judge did not exist and was not created -- i.e. they tried to revoke a nonexistent Judge
             throw new NonexistentJointGuildAndMemberError(guildId, memberId);
         } else throw new UnknownError(`Error in assign-judge.ts: Unexpected query result: ${result}.`);
     } catch (err) {
-        if (err instanceof UserFacingError) {
-            // TODO
-        } else if (err instanceof NonexistentJointGuildAndMemberError) {
-            return {
-                status: OutcomeStatus.FAIL_DNE_DUO,
-                body: {
-                    data1: err.guildId,
-                    data2: err.memberId,
-                }
-            };
-        }
+        if (err instanceof NonexistentJointGuildAndMemberError) return ({
+            status: OutcomeStatus.FAIL_DNE_DUO,
+            body: {
+                data1: err.guildId,
+                data2: err.memberId,
+            }
+        });
     }
 
     return {
@@ -112,9 +105,7 @@ const assignJudgeSlashCommandValidator = async (interaction: LimitedCommandInter
 
     const who = interaction.options.get('who', true);
 
-    const metadataConstraints = new Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>([
-
-    ]);
+    const metadataConstraints = new Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>([]);
 
     const optionConstraints = new Map<CommandInteractionOption, [Constraint<ValueOf<CommandInteractionOption>>]>([
         [who, [
@@ -135,19 +126,16 @@ const assignJudgeSlashCommandValidator = async (interaction: LimitedCommandInter
 
         validateConstraints(interaction, metadataConstraints, optionConstraints);
     } catch (err) {
-        if (err instanceof OptionValidationError) {
-            return {
-                status: OutcomeStatus.FAIL_VALIDATION,
-                body: {
-                    constraint: err.constraint,
-                    field: err.field,
-                    value: err.value,
-                }
-            };
-        } else {
-            console.error(err);
-            throw err;
-        }
+        if (err instanceof OptionValidationError) return ({
+            status: OutcomeStatus.FAIL_VALIDATION,
+            body: {
+                constraint: err.constraint,
+                field: err.field,
+                value: err.value,
+            },
+        });
+
+        throw err;
     }
 
     return await assignJudge(guildId, targetId, revoke);
