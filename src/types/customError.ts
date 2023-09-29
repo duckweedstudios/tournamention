@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 export class DuplicateSubdocumentError extends Error {
     constructor(message: string) {
         super(message);
@@ -10,7 +11,7 @@ export class DuplicateSubdocumentError extends Error {
  * getOrCreateGuildSettings() function rather than throw and/or handle this error manually.
  */
 export class NonexistentGuildError extends Error {
-    constructor(_: string) {
+    constructor(asdfadsf: string) {
         super(`Guild with ID does not exist in the database.`);
         this.name = 'NonexistentGuildError';
     }
