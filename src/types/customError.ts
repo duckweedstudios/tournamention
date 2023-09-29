@@ -10,7 +10,7 @@ export class DuplicateSubdocumentError extends Error {
  * getOrCreateGuildSettings() function rather than throw and/or handle this error manually.
  */
 export class NonexistentGuildError extends Error {
-    constructor(_guildID: string) {
+    constructor(_: string) {
         super(`Guild with ID does not exist in the database.`);
         this.name = 'NonexistentGuildError';
     }
