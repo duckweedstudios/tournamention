@@ -1,3 +1,5 @@
+import { Constraint } from '../commands/slashcommands/architecture/validation.js';
+
 export class DuplicateSubdocumentError extends Error {
     constructor(message: string) {
         super(message);
@@ -13,6 +15,47 @@ export class NonexistentGuildError extends Error {
     constructor(public guildID: string) {
         super(`Guild with ID ${guildID} does not exist in the database.`);
         this.name = 'NonexistentGuildError';
+    }
+}
+
+/**
+ * Generic error for when a specified document is not found in the database.
+ * Currently unused in the codebase.
+ */
+export class NonexistentDocumentError extends Error {
+    constructor(public documentId: string) {
+        super(`Document with ID ${documentId} does not exist in the database.`);
+        this.name = 'NonexistentDocumentError';
+    }
+}
+
+/**
+ * Error for when a document in a model compound-indexed by guild ID and user ID is not found.
+ */
+export class NonexistentJointGuildAndMemberError extends Error {
+    constructor(public guildId: string, public memberId: string) {
+        super(`Document with guild ID of ${guildId} and member of ID ${memberId} does not exist.`);
+        this.name = 'NonexistentJointGuildAndMemberError';
+    }
+}
+
+/**
+ * Categories of validation errors, where each category's name is a fail scenario if true.
+ * For example, the category INSUFFICIENT_PERMISSIONS is straightforwardly a fail scenario 
+ * and has no opposite (i.e. having permissions to use a command would never be a fail scenario),
+ * whereas the category TARGET_USER_BOT is used to indicate that the target user is a bot but SHOULD
+ * NOT be, rather than the opposite (which would be labelled TARGET_USER_NOT_BOT).
+ */
+export enum OptionValidationErrorStatus {
+    INSUFFICIENT_PERMISSIONS = 'INSUFFICIENT_PERMISSIONS', // user's permissions are insufficient to use the command
+    TARGET_USER_BOT = 'TARGET_USER_BOT', // target user is a bot (but should not be)
+    NUMBER_BEYOND_RANGE = 'NUMBER_BEYOND_RANGE', // number is outside of the required range
+}
+
+export class OptionValidationError<T> extends Error {
+    constructor(message: string, public readonly constraint: Constraint<T>, public readonly field: string, public readonly value: T) {
+        super(message);
+        this.name = 'OptionValidationError';
     }
 }
 
@@ -35,5 +78,15 @@ export class UserMessageError extends UserFacingError {
     constructor(message: string, userMessage: string) {
         super(message, userMessage);
         this.name = 'UserMessageError';
+    }
+}
+
+/**
+ * An error thrown for inexplicable situations, such as APIs returning unexpected data.
+ */
+export class UnknownError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'UnknownError';
     }
 }
