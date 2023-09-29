@@ -1,35 +1,30 @@
 import { OutcomeStatus, Outcome, SlashCommandDescribedOutcome, OutcomeWithMonoBody, OutcomeWithDuoBody } from './outcome.js';
 
 export const defaultSlashCommandDescriptions = new Map<OutcomeStatus, (o: Outcome<string>) => SlashCommandDescribedOutcome>([
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     [OutcomeStatus.SUCCESS, (_: Outcome<string>) => {
         return {
             userMessage: '✅ Success!',
             ephemeral: true,
         };
     }],
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     [OutcomeStatus.SUCCESS_MONO, (_: Outcome<string>) => {
         return {
             userMessage: `✅ Success! (default response, 1 data point omitted)`,
             ephemeral: true,
         };
     }],
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     [OutcomeStatus.SUCCESS_DUO, (_: Outcome<string>) => {
         return {
             userMessage: `✅ Success! (default response, 2 data points omitted)`,
             ephemeral: true,
         };
     }],
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     [OutcomeStatus.SUCCESS_NO_CHANGE, (_: Outcome<string>) => {
         return {
             userMessage: `✅ Success! However, certain operations made no changes.`,
             ephemeral: true,
         };
     }],
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     [OutcomeStatus.FAIL, (_: Outcome<string>) => {
         return {
             userMessage: '❌ This command failed.',
@@ -54,7 +49,6 @@ export const defaultSlashCommandDescriptions = new Map<OutcomeStatus, (o: Outcom
             ephemeral: true,
         };
     }],
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     [OutcomeStatus.FAIL_UNKNOWN, (_: Outcome<string>) => {
         return {
             userMessage: '❌ This command failed for an unknown reason.',
