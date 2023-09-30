@@ -1,4 +1,4 @@
-import { Submission, SubmissionModel } from '../schemas/submission.js';
+import { ReviewNote, ReviewNoteModel, Submission, SubmissionModel, SubmissionStatus } from '../schemas/submission.js';
 import { Ref } from '@typegoose/typegoose';
 import { Challenge } from '../schemas/challenge.js';
 import { Contestant } from '../schemas/contestant.js';
@@ -15,19 +15,23 @@ export const createSubmission = async (challengeID: Ref<Challenge>, contestantID
 
 // READ / GET
 export const getSubmissionById = async (id: Ref<Submission> | string) => {
-    return SubmissionModel.findById(id);
+    return SubmissionModel.findById(id).exec();
 };
 
-export const getSubmissionsFromContestant = async (contestantID: Ref<Contestant>) => {
-    return SubmissionModel.find({ contestantID: contestantID });
+export const getSubmissionsFromContestant = async (contestantId: Ref<Contestant> | string) => {
+    return SubmissionModel.find({ contestantID: contestantId }).exec();
 };
 
-export const getSubmissionsForChallenge = async (challengeID: Ref<Challenge>) => {
-    return SubmissionModel.find({ challengeID: challengeID });
+export const getSubmissionsForChallenge = async (challengeId: Ref<Challenge> | string) => {
+    return SubmissionModel.find({ challengeID: challengeId }).exec();
 };
 
-export const getSubmissionsForChallengeFromContestant = async (challengeId: Ref<Challenge>, contestantId: Ref<Contestant>) => {
-    return SubmissionModel.find({ challengeID: challengeId, contestantID: contestantId });
+export const getSubmissionsForChallengeFromContestant = async (challengeId: Ref<Challenge> | string, contestantId: Ref<Contestant> | string) => {
+    return SubmissionModel.find({ challengeID: challengeId, contestantID: contestantId }).exec();
+};
+
+export const getNewestSubmissionForChallengeFromContestant = async (challengeId: Ref<Challenge> | string, contestantId: Ref<Contestant> | string) => {
+    return SubmissionModel.findOne({ challengeID: challengeId, contestantID: contestantId }).sort({ createdAt: -1 }).exec();
 };
 
 // UPDATE / PUT

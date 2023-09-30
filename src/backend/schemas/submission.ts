@@ -5,10 +5,9 @@ import { Challenge } from './challenge.js';
 import { Contestant } from './contestant.js';
 
 export enum SubmissionStatus {
-    /* eslint-disable no-unused-vars */
-    Pending = 'Pending',
-    Accepted = 'Accepted',
-    Rejected = 'Rejected',
+    PENDING = 'PENDING',
+    ACCEPTED = 'ACCEPTED',
+    REJECTED = 'REJECTED',
 }
 
 export class ReviewNote {
@@ -52,7 +51,7 @@ SubmissionModel.schema.virtual('resolvedReviewNotes').get(async function() {
 
 SubmissionModel.schema.virtual('status').get(async function() {
     if (this.reviewNotes.length === 0) {
-        return SubmissionStatus.Pending;
+        return SubmissionStatus.PENDING;
     }
     const resolvedReviewNotes: ReviewNote[] = this.get('resolvedReviewNotes');
     if (!resolvedReviewNotes) throw new Error(`Error in submission.ts: Could not get review notes for submission ${this._id}`);
