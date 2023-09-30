@@ -2,6 +2,7 @@ import { ReviewNote, ReviewNoteModel, Submission, SubmissionModel, SubmissionSta
 import { Ref } from '@typegoose/typegoose';
 import { Challenge } from '../schemas/challenge.js';
 import { Contestant } from '../schemas/contestant.js';
+import { Judge } from '../schemas/judge.js';
 
 // CREATE / POST
 export const createSubmission = async (challengeID: Ref<Challenge>, contestantID: Ref<Contestant>, proof: string) => {
@@ -11,6 +12,15 @@ export const createSubmission = async (challengeID: Ref<Challenge>, contestantID
         proof: proof,
         reviewNotes: [],
     });
+};
+
+export const createReviewNoteAndAddTo = async (submissionId: Ref<Submission> | string, judgeId: Ref<Judge> | string, status: SubmissionStatus, note?: string) => {
+    const reviewNote = await ReviewNoteModel.create({ 
+        judgeID: judgeId,
+        note: note ? note : '',
+        status: status,
+    });
+    return addReviewNoteToSubmission(submissionId, reviewNote);
 };
 
 // READ / GET
@@ -35,13 +45,12 @@ export const getNewestSubmissionForChallengeFromContestant = async (challengeId:
 };
 
 // UPDATE / PUT
-// TODO: Use refs instead of nested documents (#37)
-// export const addReviewNoteToSubmission = async (submission: Ref<Submission>, judgeID: Ref<Judge>, note: string, reviewStatus: SubmissionStatus) => {
-//     return SubmissionModel.findOneAndUpdate({ _id: submission}, {
-//         $push: {
-//             reviewNotes: new ReviewNoteModel({ judgeID: judgeID, note: note, status: reviewStatus }),
-//         }
-//     });
-// };
+export const addReviewNoteToSubmission = async (submissionId: Ref<Submission> | string, reviewNoteId: Ref<ReviewNote> | string) => {
+    return SubmissionModel.findOneAndUpdate({ _id: submissionId}, {
+        $push: {
+            reviewNotes: reviewNoteId,
+        }
+    }).exec();
+};
 
 // DELETE

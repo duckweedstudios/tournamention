@@ -1,7 +1,8 @@
 import { UpdateWriteOpResult } from 'mongoose';
 import { ContestantDocument, JudgeDocument } from '../../types/customDocument.js';
-import { ContestantModel } from '../schemas/contestant.js';
-import { JudgeModel } from '../schemas/judge.js';
+import { Contestant, ContestantModel } from '../schemas/contestant.js';
+import { Judge, JudgeModel } from '../schemas/judge.js';
+import { Ref } from '@typegoose/typegoose';
 
 // CREATE / POST
 export const createContestant = async (guildId: string, memberId: string): Promise<ContestantDocument> => {
@@ -33,6 +34,18 @@ export const getOrCreateContestant = async (guildId: string, memberId: string): 
     const contestant = await ContestantModel.findOne({ guildID: guildId, userID: memberId });
     if (contestant) return contestant;
     else return createContestant(guildId, memberId);
+};
+
+export const getContestantByGuildIdAndMemberId = async (guildId: string, memberId: string): Promise<ContestantDocument | null> => {
+    return ContestantModel.findOne({ guildID: guildId, userID: memberId });
+};
+
+export const getContestantById = async (id: Ref<Contestant> | string): Promise<ContestantDocument | null> => {
+    return ContestantModel.findById(id);
+};
+
+export const getJudgeById = async (id: Ref<Judge> | string): Promise<JudgeDocument | null> => {
+    return JudgeModel.findById(id);
 };
 
 // UPDATE / PUT
