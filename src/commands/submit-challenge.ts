@@ -59,7 +59,7 @@ const submitChallenge = async (interaction: CommandInteraction): Promise<void> =
 
     // Fail if contestant already has pending or accepted submission for this challenge
     const submissions = await getSubmissionsForChallengeFromContestant(challenge, contestant);
-    if (submissions && submissions.filter(submission => submission.get('status') !== SubmissionStatus.Rejected).length > 0) {
+    if (submissions && submissions.filter(submission => submission.get('status') !== SubmissionStatus.REJECTED).length > 0) {
         throw new ChallengeSubmissionError(`Submission rejected due to pending or already accepted submission from this member.`, `Your submission was not sent. Your previous submission to this challenge is either waiting to be approved or was already approved.`);
     }
 
