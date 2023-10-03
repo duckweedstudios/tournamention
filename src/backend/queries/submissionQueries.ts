@@ -68,7 +68,9 @@ export const getSubmissionsForChallengeFromContestant = async (challengeId: Ref<
 };
 
 export const getNewestSubmissionForChallengeFromContestant = async (challengeId: Ref<Challenge> | string, contestantId: Ref<Contestant> | string) => {
-    return SubmissionModel.findOne({ challengeID: challengeId, contestantID: contestantId }).sort({ createdAt: -1 }).exec();
+    const newestSubmission = await SubmissionModel.find({ challengeID: challengeId, contestantID: contestantId }).sort({ createdAt: 'descending' }).limit(1).exec();
+    if (newestSubmission.length < 1) return null;
+    else return newestSubmission[0];
 };
 
 export const getReviewNoteById = async (id: Ref<ReviewNote> | string) => {

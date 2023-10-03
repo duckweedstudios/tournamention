@@ -2,7 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteraction } from 'discord.js';
 import { CustomCommand } from '../types/customCommand.js';
 import { getTournamentByName } from '../backend/queries/tournamentQueries.js';
-import { TournamentDocument } from '../types/customDocument.js';
+import { SubmissionDocument, TournamentDocument } from '../types/customDocument.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
 import { getChallengeOfTournamentByName } from '../backend/queries/challengeQueries.js';
 import { UserFacingError } from '../types/customError.js';
@@ -59,8 +59,18 @@ const submitChallenge = async (interaction: CommandInteraction): Promise<void> =
 
     // Fail if contestant already has pending or accepted submission for this challenge
     const submissions = await getSubmissionsForChallengeFromContestant(challenge, contestant);
-    if (submissions && submissions.filter(submission => submission.get('status') !== SubmissionStatus.REJECTED).length > 0) {
-        throw new ChallengeSubmissionError(`Submission rejected due to pending or already accepted submission from this member.`, `Your submission was not sent. Your previous submission to this challenge is either waiting to be approved or was already approved.`);
+    if (submissions) {
+        // Using for ... of syntax since filter does not support async functions
+        // (Promise<false> is truthy because any Promise is truthy)
+        const nonRejectedSubmissions = new Array<SubmissionDocument>();
+        for (const submission of submissions) {
+            if (await submission.get('status') !== SubmissionStatus.REJECTED) {
+                nonRejectedSubmissions.push(submission);
+            }
+        }
+        if (nonRejectedSubmissions.length > 0) {
+            throw new ChallengeSubmissionError(`Submission rejected due to pending or already accepted submission from this member.`, `Your submission was not sent. Your previous submission to this challenge is either waiting to be approved or was already approved.`);
+        }
     }
 
     try {

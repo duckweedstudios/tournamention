@@ -41,19 +41,19 @@ export class Submission {
 
 export const ReviewNoteModel = getModelForClass(ReviewNote);
 
-export const SubmissionModel = getModelForClass(Submission);
+export const SubmissionModel = getModelForClass(Submission, { schemaOptions: { timestamps: true } });
 
 SubmissionModel.schema.virtual('resolvedReviewNotes').get(async function() {
     // If this doesn't work then try returning the promise and rename this resolvingReviewNotes
     // or try using the populate() method https://typegoose.github.io/typegoose/docs/api/virtuals/#virtual-populate
-    return await ReviewNoteModel.find({ _id: { $in: this.reviewNotes } }) as ReviewNote[];
+    return await ReviewNoteModel.find({ _id: { $in: this.reviewNotes } }).exec() as ReviewNote[];
 });
 
 SubmissionModel.schema.virtual('status').get(async function() {
     if (this.reviewNotes.length === 0) {
         return SubmissionStatus.PENDING;
     }
-    const resolvedReviewNotes: ReviewNote[] = this.get('resolvedReviewNotes');
+    const resolvedReviewNotes = await this.get('resolvedReviewNotes') as ReviewNote[];
     if (!resolvedReviewNotes) throw new Error(`Error in submission.ts: Could not get review notes for submission ${this._id}`);
     return resolvedReviewNotes.reduce(
         (prev: ReviewNote, curr: ReviewNote) => {
