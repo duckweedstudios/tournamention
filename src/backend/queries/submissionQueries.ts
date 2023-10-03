@@ -3,7 +3,7 @@ import { Ref } from '@typegoose/typegoose';
 import { Challenge } from '../schemas/challenge.js';
 import { Contestant } from '../schemas/contestant.js';
 import { Judge } from '../schemas/judge.js';
-import { UpdateWriteOpResult } from 'mongoose';
+import { Types as MongooseTypes, UpdateWriteOpResult } from 'mongoose';
 
 // CREATE / POST
 export const createSubmission = async (challengeID: Ref<Challenge>, contestantID: Ref<Contestant>, proof: string) => {
@@ -14,7 +14,7 @@ export const createSubmission = async (challengeID: Ref<Challenge>, contestantID
         reviewNotes: [],
     });
 };
-
+    
 /**
  * Upserts a ReviewNote, and adds it to the Submission's reviewNotes array if inserted. Note that
  * this should only be used to upsert the newest ReviewNote.
@@ -34,8 +34,10 @@ export const createOrUpdateReviewNoteAndAddTo = async (submissionId: Ref<Submiss
 
     // Appeal the previous review note, if it exists. Otherwise, add the new review note.
     // First argument's complicated expression will become
-    // { id: idOfNewestReviewNote } or {}, inserting in the latter case
-    const reviewNoteUpdate = await ReviewNoteModel.updateOne({ ...(submission.reviewNotes.length > 0 && { _id: submission.reviewNotes[submission.reviewNotes.length - 1]._id }) }, {
+    // { id: idOfNewestReviewNote } or { id: brandNewId }, inserting in the latter case
+    // It's unconventional to generate an ObjectId manually, but timestamps will be close enough
+    // and there is no (probabilistic) risk of collision.
+    const reviewNoteUpdate = await ReviewNoteModel.updateOne({ ...(submission.reviewNotes.length > 0 ? { _id: submission.reviewNotes[submission.reviewNotes.length - 1]._id } : { _id: new MongooseTypes.ObjectId() }) }, {
         $set: {
             judgeID: judgeId,
             status: status,
@@ -44,7 +46,6 @@ export const createOrUpdateReviewNoteAndAddTo = async (submissionId: Ref<Submiss
     }, { upsert: true }).exec();
 
     // If a new review note was created, add it to the submission
-    console.log(`DEBUG: ${reviewNoteUpdate.upsertedId!}`);
     if (reviewNoteUpdate.matchedCount === 0) await addReviewNoteToSubmission(submissionId, reviewNoteUpdate.upsertedId!.toString());
     return reviewNoteUpdate;
 };
