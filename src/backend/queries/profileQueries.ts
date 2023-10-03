@@ -61,7 +61,7 @@ export const getJudgeByGuildIdAndMemberId = async (guildId: string, memberId: st
  * @returns The result of the update operation.
  */
 export const setJudgeActive = async (guildId: string, memberId: string, active: boolean = true): Promise<UpdateWriteOpResult> => {
-    return JudgeModel.updateOne({ guildID: guildId, userID: memberId }).set({ isActiveJudge: active }).exec();
+    return JudgeModel.updateOne({ guildID: guildId, userID: memberId }, { $set: { isActiveJudge: active } }).exec();
 };
 
 /**
