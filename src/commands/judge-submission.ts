@@ -208,7 +208,7 @@ const judgeSubmissionSlashCommandValidator = async (interaction: LimitedCommandI
         const notesOption = interaction.options.get('notes', false);
         notes = (notesOption && typeof notesOption.value === 'string' ? notesOption.value : '');
 
-        validateConstraints(interaction, metadataConstraints, optionConstraints);
+        await validateConstraints(interaction, metadataConstraints, optionConstraints);
     } catch (err) {
         if (err instanceof OptionValidationError) return ({
             status: OutcomeStatus.FAIL_VALIDATION,

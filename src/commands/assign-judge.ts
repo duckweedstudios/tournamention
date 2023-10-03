@@ -130,7 +130,7 @@ const assignJudgeSlashCommandValidator = async (interaction: LimitedCommandInter
         targetId = who.user!.id;
         revoke = interaction.options.get('revoke', false)?.value as boolean;
 
-        validateConstraints(interaction, metadataConstraints, optionConstraints);
+        await validateConstraints(interaction, metadataConstraints, optionConstraints);
     } catch (err) {
         if (err instanceof OptionValidationError) return ({
             status: OutcomeStatus.FAIL_VALIDATION,

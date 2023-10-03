@@ -13,21 +13,22 @@ export type Constraint<T> = {
  * @param metadataConstraintMap A map of a metadata field of `LimitedCommandInteraction` to a list of one or many `Constraint`s to run on that field.
  * @param optionConstraintMap A map of options of the slash command to a list of one or many `Constraint`s to run on that option.
  */
-export const validateConstraints = (interaction: LimitedCommandInteraction, metadataConstraintMap: Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>, optionConstraintMap: Map<CommandInteractionOption | null, [Constraint<ValueOf<CommandInteractionOption>>]>): void => {
-    metadataConstraintMap.forEach((constraints, metadataField) => {
-        constraints.forEach((constraint) => {
-            if (!constraint.func(interaction[metadataField])) {
+export const validateConstraints = async (interaction: LimitedCommandInteraction, metadataConstraintMap: Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>, optionConstraintMap: Map<CommandInteractionOption | null, [Constraint<ValueOf<CommandInteractionOption>>]>): Promise<void> => {
+    // Using for ... of syntax because forEach does not support async functions.
+    for (const [metadataField, constraints] of metadataConstraintMap) {
+        for (const constraint of constraints) {
+            if (!(await constraint.func(interaction[metadataField]))) {
                 throw new OptionValidationError<ValueOf<LimitedCommandInteraction>>(`Validation failed: check ${constraint.category} on metadata field ${metadataField} failed for value ${interaction[metadataField]}.`,
                     constraint,
                     metadataField,
                     interaction[metadataField]);
             }
-        });
-    });
+        }
+    }
 
-    optionConstraintMap.forEach((constraints, option) => {
+    for (const [option, constraints] of optionConstraintMap) {
         // If the option wasn't provided, don't attempt to validate it.
-        if (!option) return;
+        if (!option) continue;
 
         // Determine the intended option data based on `option.type`.
         let optionValue: ValueOf<CommandInteractionOption>;
@@ -44,13 +45,13 @@ export const validateConstraints = (interaction: LimitedCommandInteraction, meta
         }
 
         // With the type of the option established, run the constraints on it.
-        constraints.forEach((constraint) => {
-            if (!constraint.func(optionValue)) {
-                throw new OptionValidationError(`Validation failed: check ${constraint.category} on metadata field ${option.name} failed for value ${optionValue}.`,
+        for (const constraint of constraints) {
+            if (!(await constraint.func(optionValue))) {
+                throw new OptionValidationError(`Validation failed: check ${constraint.category} on option ${option.name} failed for value ${optionValue}.`,
                     constraint,
                     option.name,
                     optionValue);
             }
-        });
-    });
+        }
+    }
 };
