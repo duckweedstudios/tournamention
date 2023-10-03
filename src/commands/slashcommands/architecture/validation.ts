@@ -5,7 +5,7 @@ import { ApplicationCommandOptionType, CommandInteractionOption } from 'discord.
 
 export type Constraint<T> = {
     category: OptionValidationErrorStatus;
-    func: (val: T) => boolean;
+    func: (val: T) => Promise<boolean>;
 }
 /**
  * Runs every constraint provided on the metadata fields and options of the (slash command) interaction, throwing an `OptionValidationError` on the first failure.
@@ -13,7 +13,7 @@ export type Constraint<T> = {
  * @param metadataConstraintMap A map of a metadata field of `LimitedCommandInteraction` to a list of one or many `Constraint`s to run on that field.
  * @param optionConstraintMap A map of options of the slash command to a list of one or many `Constraint`s to run on that option.
  */
-export const validateConstraints = (interaction: LimitedCommandInteraction, metadataConstraintMap: Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>, optionConstraintMap: Map<CommandInteractionOption, [Constraint<ValueOf<CommandInteractionOption>>]>): void => {
+export const validateConstraints = (interaction: LimitedCommandInteraction, metadataConstraintMap: Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>, optionConstraintMap: Map<CommandInteractionOption | null, [Constraint<ValueOf<CommandInteractionOption>>]>): void => {
     metadataConstraintMap.forEach((constraints, metadataField) => {
         constraints.forEach((constraint) => {
             if (!constraint.func(interaction[metadataField])) {

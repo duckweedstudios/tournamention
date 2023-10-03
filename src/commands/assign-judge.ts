@@ -112,8 +112,10 @@ const assignJudgeSlashCommandValidator = async (interaction: LimitedCommandInter
             // Ensure that the target is not a bot
             {
                 category: OptionValidationErrorStatus.TARGET_USER_BOT,
-                func: function(option: ValueOf<CommandInteractionOption>): boolean {
-                    return !(option as User).bot;
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return new Promise(function(resolve) {
+                        resolve(!(option as User).bot);
+                    });
                 },
             },
         ]],
