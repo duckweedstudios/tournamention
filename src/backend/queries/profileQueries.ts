@@ -48,6 +48,10 @@ export const getJudgeById = async (id: Ref<Judge> | string): Promise<JudgeDocume
     return JudgeModel.findById(id);
 };
 
+export const getJudgeByGuildIdAndMemberId = async (guildId: string, memberId: string): Promise<JudgeDocument | null> => {
+    return JudgeModel.findOne({ guildID: guildId, userID: memberId }).exec();
+};
+
 // UPDATE / PUT
 /**
  * Sets an existing Judge document to active or inactive. Does not upsert.
