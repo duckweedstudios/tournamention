@@ -29,6 +29,7 @@ export type OutcomeWithMonoBody<T> = {
     status: OutcomeStatus.SUCCESS_MONO | OutcomeStatus.FAIL_DNE_MONO,
     body: {
         data: T,
+        context: string,
     },
 };
 
@@ -36,7 +37,9 @@ export type OutcomeWithDuoBody<T> = {
     status: OutcomeStatus.SUCCESS_DUO | OutcomeStatus.FAIL_DNE_DUO,
     body: {
         data1: T,
+        context1: string,
         data2: T,
+        context2: string,
     },
 };
 
@@ -46,6 +49,7 @@ export type OptionValidationErrorOutcome<T> = {
         constraint: Constraint<T>,
         field: string,
         value: T,
+        context: string,
     },
 };
 
@@ -53,7 +57,9 @@ export type OutcomeWithDuoListBody<T, U> = {
     status: OutcomeStatus.SUCCESS_NO_CHANGE,
     body: {
         data1: T[],
+        context1: string,
         data2: U[],
+        context2: string,
     },
 };
 

@@ -50,6 +50,7 @@ export enum OptionValidationErrorStatus {
     INSUFFICIENT_PERMISSIONS = 'INSUFFICIENT_PERMISSIONS', // user's permissions are insufficient to use the command
     TARGET_USER_BOT = 'TARGET_USER_BOT', // target user is a bot (but should not be)
     NUMBER_BEYOND_RANGE = 'NUMBER_BEYOND_RANGE', // number is outside of the required range
+    OPTION_DNE = 'OPTION_DNE', // option's associated data does not exist
 }
 
 export class OptionValidationError<T> extends Error {

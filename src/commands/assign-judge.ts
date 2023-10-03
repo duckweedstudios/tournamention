@@ -60,7 +60,9 @@ const assignJudge = async (guildId: string, memberId: string, revoke?: boolean):
             status: OutcomeStatus.SUCCESS_NO_CHANGE,
             body: {
                 data1: [memberId],
+                context1: 'memberId',
                 data2: [!revoke],
+                context2: 'isActiveJudge',
             },
         });
         if (result.matchedCount === 1 && result.modifiedCount === 1) return ({
@@ -87,7 +89,9 @@ const assignJudge = async (guildId: string, memberId: string, revoke?: boolean):
             status: OutcomeStatus.FAIL_DNE_DUO,
             body: {
                 data1: err.guildId,
+                context1: 'guildId',
                 data2: err.memberId,
+                context2: 'memberId',
             }
         });
     }
@@ -134,6 +138,7 @@ const assignJudgeSlashCommandValidator = async (interaction: LimitedCommandInter
                 constraint: err.constraint,
                 field: err.field,
                 value: err.value,
+                context: err.message,
             },
         });
 
