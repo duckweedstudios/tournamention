@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOption, GuildMember } from 'discord.js';
+import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { CustomCommand } from '../types/customCommand.js';
 import { OutcomeStatus, Outcome, SlashCommandDescribedOutcome, OutcomeWithDuoListBody, OutcomeWithDuoBody, OutcomeWithMonoBody, OptionValidationErrorOutcome } from '../types/outcome.js';
 import { getChallengeOfTournamentByName } from '../backend/queries/challengeQueries.js';
@@ -56,9 +56,10 @@ type JudgeSubmissionOutcome = AssignJudgeSuccessSubmissionReviewedOutcome | Assi
 
 /**
  * Judges the newest submission for a challenge from a contestant.
- * @param challengeId The ID of the Challenge document to judge.
- * @param contestantId The ID of the Contestant document, which is NOT the Discord member ID.
- * @param judgeId The ID of the Judge document, which is NOT the Discord member ID.
+ * @param guildId The Discord guild ID.
+ * @param challengeName The name of the challenge the submission is for.
+ * @param contestantId The Discord member ID of the contestant.
+ * @param judgeId The Discord member ID of the judge.
  * @param approve Whether to approve the submission (true) or reject it (false).
  * @param notes Optional notes to leave on the submission.
  * @param tournamentName The name of the Tournament the Challenge is part of. If provided, it should exist; otherwise, defaults to the current Tournament.
@@ -109,19 +110,6 @@ const judgeSubmission = async (guildId: string, challengeName: string, contestan
             body: {
                 data: judgeId,
                 context: 'judge',
-            },
-        });
-        if (!judge.isActiveJudge) return ({
-            // This might be later considered a misuse of FAIL_VALIDATION and need to be refactored (sort of related to #50)...
-            status: OutcomeStatus.FAIL_VALIDATION,
-            body: {
-                constraint: {
-                    category: OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS,
-                    func: (_: string) => new Promise((resolve) => resolve(false)),
-                },
-                field: 'memberId',
-                value: judgeId,
-                context: 'active judge',
             },
         });
 
