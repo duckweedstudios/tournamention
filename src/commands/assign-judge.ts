@@ -4,7 +4,7 @@ import { CustomCommand } from '../types/customCommand.js';
 import { NonexistentJointGuildAndMemberError, OptionValidationError, OptionValidationErrorStatus, UnknownError } from '../types/customError.js';
 import { setJudgeActive, setOrCreateActiveJudge } from '../backend/queries/profileQueries.js';
 import { LimitedCommandInteraction, limitCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithDuoListBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
+import { Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithDuoListBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
 import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
@@ -160,9 +160,6 @@ const assignJudgeSlashCommandDescriptions = new Map<AssignJudgeStatus, (o: Assig
     })],
     [OutcomeStatus.FAIL_DNE_DUO, (o: AssignJudgeOutcome) => ({
         userMessage: `❌ <@${(o as OutcomeWithDuoBody<string>).body.data2}> is not a judge, so you cannot revoke them.`, ephemeral: true   
-    })],
-    [OutcomeStatus.FAIL_VALIDATION, (o: AssignJudgeOutcome) => ({
-        userMessage: `❌ ${(o as OptionValidationErrorOutcome<string>).body.value} is a bot, so you cannot use this command on them.`, ephemeral: true
     })],
 ]);
 

@@ -277,7 +277,7 @@ const judgeSubmissionSlashCommandDescriptions = new Map<JudgeSubmissionStatus, (
             userMessage: `❌ The tournament **${oBody.value}** was not found.`, ephemeral: true
         });
         else return ({
-            userMessage: `❌ This command failed unexpectedly.`, ephemeral: true
+            userMessage: `❌ This command failed unexpectedly due to a validation error.`, ephemeral: true
         });
     }],
 ]);

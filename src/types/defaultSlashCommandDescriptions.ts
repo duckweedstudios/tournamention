@@ -1,4 +1,5 @@
-import { OutcomeStatus, Outcome, SlashCommandDescribedOutcome, OutcomeWithMonoBody, OutcomeWithDuoBody } from './outcome.js';
+import { OptionValidationErrorStatus } from './customError.js';
+import { OutcomeStatus, Outcome, SlashCommandDescribedOutcome, OutcomeWithMonoBody, OutcomeWithDuoBody, OptionValidationErrorOutcome } from './outcome.js';
 
 export const defaultSlashCommandDescriptions = new Map<OutcomeStatus, (o: Outcome<string>) => SlashCommandDescribedOutcome>([
     [OutcomeStatus.SUCCESS, (_: Outcome<string>) => {
@@ -32,10 +33,22 @@ export const defaultSlashCommandDescriptions = new Map<OutcomeStatus, (o: Outcom
         };
     }],
     [OutcomeStatus.FAIL_VALIDATION, (o: Outcome<string>) => {
-        return {
-            userMessage: `❌ This command failed due to entered data ${(o as OutcomeWithMonoBody<string>).body.data}`,
-            ephemeral: true,
-        };
+        const oBody = (o as OptionValidationErrorOutcome<string>).body;
+        if (oBody.constraint.category === OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS) return ({
+            userMessage: `❌ You do not have permission to use this command.`, ephemeral: true,
+        });
+        else if (oBody.constraint.category === OptionValidationErrorStatus.TARGET_USER_BOT) return ({
+            userMessage: `❌ ${oBody.value} is a bot, so you cannot use this command on them.`, ephemeral: true,
+        });
+        else if (oBody.constraint.category === OptionValidationErrorStatus.NUMBER_BEYOND_RANGE) return ({
+            userMessage: `❌ The number you provided for **${oBody.field}**, *${oBody.value}*, is outside the required range.`, ephemeral: true,
+        });
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DNE) return ({
+            userMessage: `❌ The value you provided for **${oBody.field}**, *${oBody.value}*, was not found.`, ephemeral: true,
+        });
+        else return ({
+            userMessage: `❌ This command failed due to a validation error.`, ephemeral: true,
+        });
     }],
     [OutcomeStatus.FAIL_DNE_MONO, (o: Outcome<string>) => {
         return {
