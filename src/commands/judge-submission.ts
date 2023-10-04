@@ -164,8 +164,7 @@ const judgeSubmissionSlashCommandValidator = async (interaction: LimitedCommandI
                 category: OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS,
                 func: async function(metadata: ValueOf<LimitedCommandInteraction>): Promise<boolean> {
                     const judge = await getJudgeByGuildIdAndMemberId(guildId, (metadata as GuildMember).id);
-                    if (!judge) return false;
-                    return judge.isActiveJudge || (metadata as GuildMember).permissions.has(PermissionsBitField.Flags.Administrator);
+                    return (judge && judge.isActiveJudge) || (metadata as GuildMember).permissions.has(PermissionsBitField.Flags.Administrator);
                 },
             },
         ]],
@@ -252,7 +251,7 @@ const judgeSubmissionSlashCommandDescriptions = new Map<JudgeSubmissionStatus, (
             userMessage: `❌ This failed because <@${oBody.data}> might not be a contestant.`, ephemeral: true
         });
         else if (oBody.context === 'judge') return ({
-            userMessage: `❌ <@${oBody.data}>, you are not a judge.`, ephemeral: true
+            userMessage: `❌ You haven't been fully set up as a judge yet. Please have a server admin use \`/assign-judge \`<@${oBody.data}>.`, ephemeral: true
         });
         else if (oBody.context === 'challenge') return ({
             userMessage: `❌ The challenge **${oBody.data}** was not found.`, ephemeral: true
