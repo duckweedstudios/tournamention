@@ -171,13 +171,13 @@ const judgeSubmissionSlashCommandValidator = async (interaction: LimitedCommandI
 
     const metadataConstraints = new Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>([
         ['member', [
-            // Ensure that the sender is a Judge
+            // Ensure that the sender is a Judge or Administrator
             {
                 category: OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS,
                 func: async function(metadata: ValueOf<LimitedCommandInteraction>): Promise<boolean> {
-                    const judge = await getJudgeByGuildIdAndMemberId(guildId, (metadata as GuildMember)!.id!);
+                    const judge = await getJudgeByGuildIdAndMemberId(guildId, (metadata as GuildMember).id);
                     if (!judge) return false;
-                    return judge.isActiveJudge || (metadata as GuildMember).permissions.has('Administrator');
+                    return judge.isActiveJudge || (metadata as GuildMember).permissions.has(PermissionsBitField.Flags.Administrator);
                 },
             },
         ]],
