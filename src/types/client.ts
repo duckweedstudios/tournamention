@@ -1,4 +1,4 @@
-import { Client, Collection } from 'discord.js';
+import { Client, Collection, GatewayIntentBits } from 'discord.js';
 import { CustomCommand } from './customCommand.js';
 
 export type SlashCommandCollectionPair = {
@@ -12,7 +12,9 @@ export class TournamentionClient extends Client {
 
     private constructor() {
         super({
-            intents: [],
+            intents: [
+                GatewayIntentBits.Guilds,
+            ],
         });
         this.commands = new Collection();
         TournamentionClient.instance = this;

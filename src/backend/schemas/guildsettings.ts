@@ -1,8 +1,11 @@
 import { prop, getModelForClass } from '@typegoose/typegoose';
 import { TournamentModel, Tournament } from './tournament.js';
 import { TournamentDocument } from '../../types/customDocument.js';
+import { ObjectId } from 'mongodb';
 
 export class GuildSettings {
+    _id!: ObjectId;
+
     @prop({ required: true, unique: true })
     public guildID!: string;
 

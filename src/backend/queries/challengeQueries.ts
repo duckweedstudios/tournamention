@@ -1,11 +1,12 @@
 import { ObjectId } from 'mongodb';
 import { ChallengeDocument, TournamentDocument } from '../../types/customDocument.js';
-import { ChallengeModel } from '../schemas/challenge.js';
+import { Challenge, ChallengeModel } from '../schemas/challenge.js';
 import { UpdateChallengeParams } from '../../types/apiPayloadObjects.js';
+import { Ref } from '@typegoose/typegoose';
 // CREATE / POST
 
 // READ / GET
-export const getChallengeById = async (id: ObjectId): Promise<ChallengeDocument | null> => {
+export const getChallengeById = async (id: Ref<Challenge> | string): Promise<ChallengeDocument | null> => {
     return ChallengeModel.findById(id);
 };
 
