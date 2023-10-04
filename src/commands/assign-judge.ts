@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOption, User } from 'discord.js';
+import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField, User } from 'discord.js';
 import { CustomCommand } from '../types/customCommand.js';
 import { NonexistentJointGuildAndMemberError, OptionValidationError, OptionValidationErrorStatus, UnknownError } from '../types/customError.js';
 import { setJudgeActive, setOrCreateActiveJudge } from '../backend/queries/profileQueries.js';
@@ -109,7 +109,17 @@ const assignJudgeSlashCommandValidator = async (interaction: LimitedCommandInter
 
     const who = interaction.options.get('who', true);
 
-    const metadataConstraints = new Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>([]);
+    const metadataConstraints = new Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>([
+        ['member', [
+            // Ensure that the sender is an Administrator
+            {
+                category: OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS,
+                func: async function(metadata: ValueOf<LimitedCommandInteraction>): Promise<boolean> {
+                    return (metadata as GuildMember).permissions.has(PermissionsBitField.Flags.Administrator);
+                },
+            },
+        ]]
+    ]);
 
     const optionConstraints = new Map<CommandInteractionOption, [Constraint<ValueOf<CommandInteractionOption>>]>([
         [who, [
