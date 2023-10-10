@@ -157,7 +157,7 @@ const judgeSubmission = async (guildId: string, challengeName: string, contestan
 const judgeSubmissionSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<JudgeSubmissionOutcome> => {
     const guildId = interaction.guildId!;
 
-    const metadataConstraints = new Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>([
+    const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([
         ['member', [
             // Ensure that the sender is a Judge or Administrator
             {
@@ -173,7 +173,7 @@ const judgeSubmissionSlashCommandValidator = async (interaction: LimitedCommandI
     const contestant = interaction.options.get('contestant', true);
     const tournament = interaction.options.get('tournament', false);
 
-    const optionConstraints = new Map<CommandInteractionOption | null, [Constraint<ValueOf<CommandInteractionOption>>]>([
+    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
         [tournament, [
             // Ensure that the tournament exists, if it was provided
             {

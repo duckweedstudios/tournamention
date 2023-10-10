@@ -131,10 +131,10 @@ const submitChallenge = async (guildId: string, challengeName: string, contestan
 const submitChallengeSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<SubmitChallengeOutcome> => {
     const guildId = interaction.guildId!;
 
-    const metadataConstraints = new Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>([]);
+    const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([]);
 
     const tournament = interaction.options.get('tournament', false);
-    const optionConstraints = new Map<CommandInteractionOption | null, [Constraint<ValueOf<CommandInteractionOption>>]>([
+    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
         [tournament, [
             // Ensure that the tournament exists, if it was provided
             {
