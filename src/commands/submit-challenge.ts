@@ -103,8 +103,7 @@ const submitChallenge = async (guildId: string, challengeName: string, contestan
                 status: SubmitChallengeSpecificStatus.FAIL_EXISTING_SUBMISSION,
                 body: {
                     data: challenge.name,
-                }
-                // throw new ChallengeSubmissionError(`Submission rejected due to pending or already accepted submission from this member.`, `Your submission was not sent. Your previous submission to this challenge is either waiting to be approved or was already approved.`);
+                },
             });
         }
 

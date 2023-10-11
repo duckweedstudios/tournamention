@@ -24,7 +24,6 @@ enum _TournamentsSpecificStatus {
  */
 type TournamentsStatus = OutcomeStatus;
 
-
 /**
  * Union of specific and generic outcomes.
  */
