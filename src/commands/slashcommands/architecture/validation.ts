@@ -13,7 +13,7 @@ export type Constraint<T> = {
  * @param metadataConstraintMap A map of a metadata field of `LimitedCommandInteraction` to a list of one or many `Constraint`s to run on that field.
  * @param optionConstraintMap A map of options of the slash command to a list of one or many `Constraint`s to run on that option.
  */
-export const validateConstraints = async (interaction: LimitedCommandInteraction, metadataConstraintMap: Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>, optionConstraintMap: Map<CommandInteractionOption | null, [Constraint<ValueOf<CommandInteractionOption>>]>): Promise<void> => {
+export const validateConstraints = async (interaction: LimitedCommandInteraction, metadataConstraintMap: Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>, optionConstraintMap: Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>): Promise<void> => {
     // Using for ... of syntax because forEach does not support async functions.
     for (const [metadataField, constraints] of metadataConstraintMap) {
         for (const constraint of constraints) {

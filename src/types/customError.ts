@@ -51,6 +51,8 @@ export enum OptionValidationErrorStatus {
     TARGET_USER_BOT = 'TARGET_USER_BOT', // target user is a bot (but should not be)
     NUMBER_BEYOND_RANGE = 'NUMBER_BEYOND_RANGE', // number is outside of the required range
     OPTION_DNE = 'OPTION_DNE', // option's associated data does not exist
+    OPTION_UNDEFAULTABLE = 'OPTION_UNDEFAULTABLE', // optional option not provided and could not be defaulted
+    OPTION_DUPLICATE = 'OPTION_DUPLICATE', // option provides a duplicate of existing data
 }
 
 export class OptionValidationError<T> extends Error {

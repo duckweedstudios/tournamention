@@ -115,6 +115,11 @@ export const getDifficultyByEmoji = async (tournament: TournamentDocument, emoji
     return null;
 };
 
+export const getDifficultiesOfTournament = async (tournamentId: Ref<Tournament> | string): Promise<DifficultyDocument[]> => {
+    const tournament = await TournamentModel.findById(tournamentId);
+    return DifficultyModel.find().where('_id').in(tournament!.difficulties).exec();
+};
+
 // UPDATE / PUT
 export const updateTournament = async (id: ObjectId, update: UpdateTournamentParams): Promise<TournamentDocument | null> => {
     return TournamentModel.findByIdAndUpdate(id, { $set: update });

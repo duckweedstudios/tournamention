@@ -109,7 +109,7 @@ const assignJudgeSlashCommandValidator = async (interaction: LimitedCommandInter
 
     const who = interaction.options.get('who', true);
 
-    const metadataConstraints = new Map<keyof LimitedCommandInteraction, [Constraint<ValueOf<LimitedCommandInteraction>>]>([
+    const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([
         ['member', [
             // Ensure that the sender is an Administrator
             {
@@ -121,7 +121,7 @@ const assignJudgeSlashCommandValidator = async (interaction: LimitedCommandInter
         ]]
     ]);
 
-    const optionConstraints = new Map<CommandInteractionOption, [Constraint<ValueOf<CommandInteractionOption>>]>([
+    const optionConstraints = new Map<CommandInteractionOption, Constraint<ValueOf<CommandInteractionOption>>[]>([
         [who, [
             // Ensure that the target is not a bot
             {

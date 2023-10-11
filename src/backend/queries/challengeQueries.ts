@@ -3,6 +3,7 @@ import { ChallengeDocument, TournamentDocument } from '../../types/customDocumen
 import { Challenge, ChallengeModel } from '../schemas/challenge.js';
 import { UpdateChallengeParams } from '../../types/apiPayloadObjects.js';
 import { Ref } from '@typegoose/typegoose';
+import { Tournament, TournamentModel } from '../schemas/tournament.js';
 // CREATE / POST
 
 // READ / GET
@@ -15,6 +16,11 @@ export const getChallengeOfTournamentByName = async (name: string, tournament: T
     // Use Mongoose's query builder to filter for Challenges with both the matching name and
     // membership in the tournament's challenge.
     return ChallengeModel.findOne().where('_id').in(tournament.challenges).where('name').equals(name).exec();
+};
+
+export const getChallengesOfTournament = async (tournamentId: Ref<Tournament> | string): Promise<ChallengeDocument[]> => {
+    const tournament = await TournamentModel.findById(tournamentId);
+    return ChallengeModel.find().where('_id').in(tournament!.challenges).exec();
 };
 
 // UPDATE / PUT
