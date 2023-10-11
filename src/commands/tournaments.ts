@@ -2,7 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { CustomCommand } from '../types/customCommand.js';
 import { getTournamentsByGuild } from '../backend/queries/tournamentQueries.js';
-import { TournamentDocument } from '../types/customDocument.js';
+import { ResolvedTournament, TournamentDocument } from '../types/customDocument.js';
 import { OptionValidationError } from '../types/customError.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
 import { LimitedCommandInteraction, limitCommandInteraction } from '../types/limitedCommandInteraction.js';
@@ -28,7 +28,22 @@ type TournamentsStatus = OutcomeStatus;
 /**
  * Union of specific and generic outcomes.
  */
-type TournamentsOutcome = Outcome<TournamentDocument[]>;
+type TournamentsOutcome = Outcome<ResolvedTournament[]>;
+
+/**
+ * Business logic helper method to convert TournamentDocuments to ResolvedTournaments, thus
+ * decoupling the data used by the describer from the database.
+ * @param tournaments The list of TournamentDocuments that would be returned in the Outcome.
+ * @returns The converted list of ResolvedTournaments, in the same order as the input.
+ */
+const resolveTournaments = async (tournaments: TournamentDocument[]): Promise<ResolvedTournament[]> => {
+    const resolvedTournaments: ResolvedTournament[] = [];
+    for (const tournament of tournaments) {
+        const resolvedTournament = await new ResolvedTournament(tournament).make();
+        resolvedTournaments.push(resolvedTournament);
+    }
+    return resolvedTournaments;
+};
 
 /**
  * Retrieves all the tournaments for a given guild.
@@ -54,22 +69,26 @@ const tournaments = async (guildId: string, judgeView: boolean): Promise<Tournam
                 return {
                     status: OutcomeStatus.SUCCESS_MONO,
                     body: {
-                        data: allTournaments,
+                        data: await resolveTournaments(allTournaments),
                         context: 'tournaments',
                     },
                 };
             }
-            const orderedTournaments = allTournaments.filter(tournament => tournament._id !== currentTournament._id);
+            const orderedTournaments = allTournaments.filter(tournament => !tournament._id.equals(currentTournament._id));
             orderedTournaments.push(currentTournament);
             orderedTournaments.reverse();
             return {
                 status: OutcomeStatus.SUCCESS_MONO,
                 body: {
-                    data: orderedTournaments,
+                    data: await resolveTournaments(orderedTournaments),
                     context: 'tournaments',
                 },
             };
         } else {
+            if (allTournaments.filter(tournament => tournament.visibility).length === 0) return ({
+                status: OutcomeStatus.FAIL,
+                body: {},
+            });
             // Place the current tournament first in the list
             const currentTournament = await getCurrentTournament(guildId);
             if (!currentTournament) {
@@ -78,7 +97,7 @@ const tournaments = async (guildId: string, judgeView: boolean): Promise<Tournam
                 return {
                     status: OutcomeStatus.SUCCESS_MONO,
                     body: {
-                        data: allTournaments.filter(tournament => tournament.visibility),
+                        data: await resolveTournaments(allTournaments.filter(tournament => tournament.visibility)),
                         context: 'tournaments',
                     },
                 };
@@ -89,9 +108,9 @@ const tournaments = async (guildId: string, judgeView: boolean): Promise<Tournam
                 return {
                     status: OutcomeStatus.SUCCESS_DUO,
                     body: {
-                        data1: allTournaments.filter(tournament => tournament.visibility).filter(tournament => tournament._id !== currentTournament._id),
+                        data1: await resolveTournaments(allTournaments.filter(tournament => tournament.visibility).filter(tournament => tournament._id !== currentTournament._id)),
                         context1: 'tournaments',
-                        data2: [currentTournament],
+                        data2: await resolveTournaments([currentTournament]),
                         context2: 'hidden current tournament',
                     },
                 };
@@ -102,7 +121,7 @@ const tournaments = async (guildId: string, judgeView: boolean): Promise<Tournam
             return {
                 status: OutcomeStatus.SUCCESS_MONO,
                 body: {
-                    data: orderedTournaments,
+                    data: await resolveTournaments(orderedTournaments),
                     context: 'tournaments',
                 },
             };
@@ -149,31 +168,66 @@ const tournamentsSlashCommandValidator = async (interaction: LimitedCommandInter
     }
 
     const judgeView = !contestantView && memberIsJudgeOrAdmin;
-    console.log(`DEBUG: contestantView: ${contestantView}, judgeView: ${judgeView}`);
 
     return await tournaments(guildId, judgeView);
     
 };
 
+/**
+ * Converts a ResolvedTournament to a string of a 2-line format.
+ * @param tournament 
+ * @returns A string with the format:
+ * 
+ * **My Tournament** (5 challenges: 2 🔥 1 💀)
+ * 
+ * {status description} ({duration})
+ */
+const formatTournamentDetails = (tournament: ResolvedTournament): string => {
+    // **My Tournament** (5 challenges
+    let message = `**${tournament.name}** (${tournament.challenges.length} ${tournament.challenges.length !== 0 ? 'challenges' : 'challenge'}`;
+    // :
+    if (tournament.challenges.some(challenge => challenge.difficulty)) message += ':';
+    // 2 🔥 1 💀
+    for (const difficulty of tournament.difficulties) {
+        const challengesOfDifficultCount = tournament.challenges.filter(challenge => challenge.difficulty?._id.equals(difficulty._id)).length;
+        if (challengesOfDifficultCount > 0) message += ` ${challengesOfDifficultCount} ${difficulty.emoji}`;
+    }
+    // )
+    message += ')';
+    // {status description} ({duration})
+    message += `\n\t*${tournament.statusDescription || '(no description)'}* (${tournament.duration || 'no duration'})`;
+
+    return message;
+};
+
 const tournamentsSlashCommandDescriptions = new Map<TournamentsStatus, (o: TournamentsOutcome) => SlashCommandDescribedOutcome>([
     [OutcomeStatus.SUCCESS_MONO, (o: TournamentsOutcome) => {
-        const oBody = (o as OutcomeWithMonoBody<TournamentDocument[]>).body;
-        let resultString = '';
+        const oBody = (o as OutcomeWithMonoBody<ResolvedTournament[]>).body;
+        let message = '';
         if (oBody.data[0].active) {
-            resultString += `The current tournament is **${oBody.data[0].name}**.`;
+            message += `The current tournament:\n${formatTournamentDetails(oBody.data[0])}`;
             oBody.data.shift();
         }
         const activeTournaments = oBody.data.filter(tournament => tournament.active);
         const inactiveTournaments = oBody.data.filter(tournament => !tournament.active);
-        if (activeTournaments.length > 0) resultString += `\n\nActive tournaments: ${activeTournaments.map(tournament => `**${tournament.name}**`).join(', ')}`;
-        if (inactiveTournaments.length > 0) resultString += `\n\nInactive tournaments: ${inactiveTournaments.map(tournament => `**${tournament.name}**`).join(', ')}`;
-        
+        if (activeTournaments.length > 0) {
+            message += `\n\nOther active tournaments:`;
+            activeTournaments.forEach(tournament => {
+                message += `\n${formatTournamentDetails(tournament)}`;
+            });
+        }
+        if (inactiveTournaments.length > 0) {
+            message += `\n\nInactive tournaments:`;
+            inactiveTournaments.forEach(tournament => {
+                message += `\n${formatTournamentDetails(tournament)}`;
+            });
+        }
         return {
-            userMessage: resultString, ephemeral: true,
+            userMessage: message, ephemeral: true,
         };
     }],
     [OutcomeStatus.SUCCESS_DUO, (o: TournamentsOutcome) => {
-        const oBody = (o as OutcomeWithDuoBody<TournamentDocument[]>).body;
+        const oBody = (o as OutcomeWithDuoBody<ResolvedTournament[]>).body;
         let resultString = 'The current tournament is *hidden*.';
         const activeTournaments = oBody.data1.filter(tournament => tournament.active);
         const inactiveTournaments = oBody.data1.filter(tournament => !tournament.active);
