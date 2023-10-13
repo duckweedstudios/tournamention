@@ -1,0 +1,254 @@
+import { SlashCommandBuilder } from '@discordjs/builders';
+import { CommandInteraction, CommandInteractionOption } from 'discord.js';
+import { CustomCommand } from '../types/customCommand.js';
+import { getTournamentByName } from '../backend/queries/tournamentQueries.js';
+import { SubmissionDocument } from '../types/customDocument.js';
+import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
+import { getChallengeOfTournamentByName } from '../backend/queries/challengeQueries.js';
+import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
+import { getOrCreateContestant } from '../backend/queries/profileQueries.js';
+import { createSubmission, getSubmissionsForChallengeFromContestant } from '../backend/queries/submissionQueries.js';
+import { SubmissionStatus } from '../backend/schemas/submission.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
+import { LimitedCommandInteraction, limitCommandInteraction } from '../types/limitedCommandInteraction.js';
+import { ValueOf } from '../types/typelogic.js';
+import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
+import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
+
+/**
+ * Status codes specific to this command.
+ */
+enum SubmitChallengeSpecificStatus {
+    FAIL_TOURNAMENT_INACTIVE = 'FAIL_TOURNAMENT_INACTIVE',
+    FAIL_TOURNAMENT_HIDDEN = 'FAIL_TOURNAMENT_HIDDEN',
+    FAIL_CHALLENGE_HIDDEN = 'FAIL_CHALLENGE_HIDDEN',
+    FAIL_EXISTING_SUBMISSION = 'FAIL_EXISTING_SUBMISSION',
+}
+
+/**
+ * Union of specific and generic status codes.
+ */
+type SubmitChallengeStatus = SubmitChallengeSpecificStatus | OutcomeStatus;
+
+/**
+ * The outcome format for the specific status code(s).
+ * Since all can reuse the same body format, they are all combined into one type, to later be
+ * discriminated by the status code.
+ */
+type SubmitChallengeSpecificOutcome = {
+    status: SubmitChallengeSpecificStatus.FAIL_TOURNAMENT_INACTIVE | SubmitChallengeSpecificStatus.FAIL_TOURNAMENT_HIDDEN | SubmitChallengeSpecificStatus.FAIL_CHALLENGE_HIDDEN | SubmitChallengeSpecificStatus.FAIL_EXISTING_SUBMISSION;
+    body: {
+        data: string;
+    };
+};
+
+/**
+ * Union of specific and generic outcomes.
+ */
+type SubmitChallengeOutcome = SubmitChallengeSpecificOutcome | Outcome<string>;
+
+const submitChallenge = async (guildId: string, challengeName: string, contestantId: string, proofLink: string, tournamentName?: string): Promise<SubmitChallengeOutcome> => {
+    try {
+        // Ensure the Tournament and Challenge exist
+        const tournament = tournamentName ? await getTournamentByName(guildId, tournamentName) : await getCurrentTournament(guildId);
+        if (!tournament) return ({
+            status: OutcomeStatus.FAIL_DNE_MONO,
+            body: {
+                data: tournamentName ? tournamentName : '(currentTournament)',
+                context: 'tournament',
+            }
+        });
+        if (!tournament.active) return ({
+            status: SubmitChallengeSpecificStatus.FAIL_TOURNAMENT_INACTIVE,
+            body: {
+                data: tournament.name,
+            }
+        });
+        if (!tournament.visibility) return ({
+            status: SubmitChallengeSpecificStatus.FAIL_TOURNAMENT_HIDDEN,
+            body: {
+                data: tournament ? tournament.name : '(currentTournament)',
+            }
+        });
+        const challenge = await getChallengeOfTournamentByName(challengeName, tournament);
+        if (!challenge) return ({
+            status: OutcomeStatus.FAIL_DNE_DUO,
+            body: {
+                data1: challengeName,
+                context1: 'challenge',
+                data2: tournament.name,
+                context2: 'tournament',
+            },
+        });
+        if (!challenge.visibility) return ({
+            status: SubmitChallengeSpecificStatus.FAIL_CHALLENGE_HIDDEN,
+            body: {
+                data: challenge.name,
+            }
+        });
+        const contestant = await getOrCreateContestant(guildId, contestantId);
+
+        // Fail if contestant already has pending or accepted submission for this challenge
+        const submissions = await getSubmissionsForChallengeFromContestant(challenge, contestant);
+        if (submissions) {
+            // Using for ... of syntax since filter does not support async functions
+            // (Promise<false> is truthy because any Promise is truthy)
+            const nonRejectedSubmissions = new Array<SubmissionDocument>();
+            for (const submission of submissions) {
+                if (await submission.get('status') !== SubmissionStatus.REJECTED) {
+                    nonRejectedSubmissions.push(submission);
+                }
+            }
+            if (nonRejectedSubmissions.length > 0) return ({
+                status: SubmitChallengeSpecificStatus.FAIL_EXISTING_SUBMISSION,
+                body: {
+                    data: challenge.name,
+                },
+            });
+        }
+
+        // Create the submission
+        await createSubmission(challenge, contestant, proofLink);
+
+        return ({
+            status: OutcomeStatus.SUCCESS_MONO,
+            body: {
+                data: challenge.name,
+                context: 'challenge',
+            },
+        });
+    } catch (err) {
+        // No expected thrown errors
+    }
+
+    return ({
+        status: OutcomeStatus.FAIL_UNKNOWN,
+        body: {},
+    });
+};
+
+const submitChallengeSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<SubmitChallengeOutcome> => {
+    const guildId = interaction.guildId!;
+
+    const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([]);
+
+    const tournament = interaction.options.get('tournament', false);
+    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
+        [tournament, [
+            // Ensure that the tournament exists, if it was provided
+            {
+                category: OptionValidationErrorStatus.OPTION_DNE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = await getTournamentByName(guildId, option as string);
+                    return tournamentDocument !== null;
+                }
+            },
+        ]],
+    ]);
+
+    let challengeName: string;
+    let proofLink: string;
+    try {
+        challengeName = interaction.options.get('name', true).value! as string;
+        proofLink = interaction.options.get('proof-link', true).value! as string;
+
+        await validateConstraints(interaction, metadataConstraints, optionConstraints);
+    } catch (err) {
+        if (err instanceof OptionValidationError) return ({
+            status: OutcomeStatus.FAIL_VALIDATION,
+            body: {
+                constraint: err.constraint,
+                field: err.field,
+                value: err.value,
+                context: err.message,
+            },
+        });
+
+        throw err;
+    }
+
+    return await submitChallenge(guildId, challengeName, interaction.member!.user!.id, proofLink, (tournament ? tournament.value as string : undefined));
+};
+
+const submitChallengeSlashCommandDescriptions = new Map<SubmitChallengeStatus, (o: SubmitChallengeOutcome) => SlashCommandDescribedOutcome>([
+    [OutcomeStatus.SUCCESS_MONO, (o: SubmitChallengeOutcome) => ({
+        userMessage: `✅ Submission for **${(o as OutcomeWithMonoBody<string>).body.data}** sent for review!`, ephemeral: true,
+    })],
+    [SubmitChallengeSpecificStatus.FAIL_TOURNAMENT_HIDDEN, (o: SubmitChallengeOutcome) => {
+        if ((o as SubmitChallengeSpecificOutcome).body.data === '(currentTournament)') return ({
+            userMessage: `❌ The current tournament is currently hidden and is not accepting submissions.`, ephemeral: true,
+        });
+        else return ({
+            userMessage: `❌ That tournament is currently hidden and is not accepting submissions.`, ephemeral: true,
+        });
+    }],
+    [SubmitChallengeSpecificStatus.FAIL_TOURNAMENT_INACTIVE, (o: SubmitChallengeOutcome) => ({
+        userMessage: `❌ The tournament **${(o as SubmitChallengeSpecificOutcome).body.data}** is not accepting submissions.`, ephemeral: true,
+    })],
+    [SubmitChallengeSpecificStatus.FAIL_CHALLENGE_HIDDEN, (_: SubmitChallengeOutcome) => ({
+        userMessage: `❌ That challenge is currently hidden and is not accepting submissions.`, ephemeral: true,
+    })],
+    [SubmitChallengeSpecificStatus.FAIL_EXISTING_SUBMISSION, (o: SubmitChallengeOutcome) => ({
+        userMessage: `❌ Your previous submission to **${(o as SubmitChallengeSpecificOutcome).body.data}** is either waiting to be approved or was already approved.`, ephemeral: true,
+    })],
+    [OutcomeStatus.FAIL_DNE_MONO, (o: SubmitChallengeOutcome) => {
+        const oBody = (o as OutcomeWithMonoBody<string>).body;
+        if (oBody.context === 'tournament') return (
+            oBody.data === '(currentTournament)' ? ({
+                userMessage: `❌ The current tournament was not found.`, ephemeral: true
+            }) : ({
+                userMessage: `❌ The tournament **${oBody.data}** was not found.`, ephemeral: true
+            })
+        );
+        else return ({
+            userMessage: `❌ This command failed unexpectedly. **${oBody.data}** does not exist.`, ephemeral: true
+        });
+    }],
+    [OutcomeStatus.FAIL_DNE_DUO, (o: SubmitChallengeOutcome) => {
+        const oBody = (o as OutcomeWithDuoBody<string>).body;
+        if (oBody.context1 === 'challenge' && oBody.context2 === 'tournament') return ({
+            userMessage: `❌ The challenge **${oBody.data1}** was not found in the tournament **${oBody.data2}**.`, ephemeral: true
+        });
+        else return ({
+            userMessage: `❌ This command failed unexpectedly.`, ephemeral: true
+        });
+    }],
+    [OutcomeStatus.FAIL_VALIDATION, (o: SubmitChallengeOutcome) => {
+        const oBody = (o as OptionValidationErrorOutcome<string>).body;
+        if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DNE) return ({
+            userMessage: `❌ The tournament **${oBody.value}** was not found.`, ephemeral: true
+        });
+        else return ({
+            userMessage: `❌ This command failed unexpectedly due to a validation error.`, ephemeral: true
+        });
+    }],
+]);
+
+const submitChallengeSlashCommandOutcomeDescriber = async (interaction: LimitedCommandInteraction): Promise<SlashCommandDescribedOutcome> => {
+    const outcome = await submitChallengeSlashCommandValidator(interaction);
+    if (submitChallengeSlashCommandDescriptions.has(outcome.status)) return submitChallengeSlashCommandDescriptions.get(outcome.status)!(outcome);
+    // Fallback to trying default descriptions
+    const defaultOutcome = outcome as Outcome<string>;
+    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
+        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
+    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
+};
+
+const judgeSubmissionSlashCommandReplyer = async (interaction: CommandInteraction): Promise<void> => {
+    const describedOutcome = await submitChallengeSlashCommandOutcomeDescriber(limitCommandInteraction(interaction));
+    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
+};
+
+const SubmitChallengeCommand = new CustomCommand(
+    new SlashCommandBuilder()
+        .setName('submit-challenge')
+        .setDescription('Send your submission for a challenge you completed, along with proof.')
+        .addStringOption(option => option.setName('name').setDescription('The name of the challenge.').setRequired(true))
+        .addStringOption(option => option.setName('proof-link').setDescription('Your proof of completing the challenge. Linkless? Send it on this server then Copy Message Link!').setRequired(true))
+        .addStringOption(option => option.setName('tournament').setDescription('The tournament the challenge is part of. Defaults to current tournament.').setRequired(false)) as SlashCommandBuilder,
+    async (interaction: CommandInteraction) => {
+        await judgeSubmissionSlashCommandReplyer(interaction);
+    }
+);
+
+export default SubmitChallengeCommand;

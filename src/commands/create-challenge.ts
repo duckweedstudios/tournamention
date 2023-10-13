@@ -1,132 +1,221 @@
-import { ObjectId } from 'mongodb';
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction } from 'discord.js';
+import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { CustomCommand } from '../types/customCommand.js';
-import { addChallengeToTournament, getDifficultyByEmoji, getTournamentById, getTournamentByName } from '../backend/queries/tournamentQueries.js';
-import { ChallengeDocument, DifficultyDocument, TournamentDocument } from '../types/customDocument.js';
-import { Challenge, ChallengeModel } from '../backend/schemas/challenge.js';
-import { DuplicateSubdocumentError, UserFacingError } from '../types/customError.js';
+import { addChallengeToTournament, getDifficultyByEmoji, getTournamentByName } from '../backend/queries/tournamentQueries.js';
+import { ChallengeDocument } from '../types/customDocument.js';
+import { ChallengeModel } from '../backend/schemas/challenge.js';
+import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-import { CommandInteractionOptionResolverAlias } from '../types/discordTypeAlias.js';
+import { LimitedCommandInteraction, limitCommandInteraction } from '../types/limitedCommandInteraction.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
+import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
+import { ValueOf } from '../types/typelogic.js';
+import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
+import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
 
-class ChallengeCreationError extends UserFacingError {
-    constructor(message: string, userMessage: string) {
-        super(message, userMessage);
-        this.name = 'ChallengeCreationError';
-    }
-}
+/**
+ * Status codes specific to this command.
+ */
+enum _CreateChallengeSpecificStatus {
 
-class BatchChallengeCreationError extends UserFacingError {
-    constructor(message: string, userMessage: string) {
-        super(message, userMessage);
-        this.name = 'BatchChallengeCreationError';
-    }
 }
 
 /**
- * Handles batch creation of one or many Challenge subdocuments within a Tournament. The Factory is
- * tied to the Tournament (provided by its `ObjectId`) supplied at construction time.
+ * Union of specific and generic status codes.
  */
-class ChallengeFactory {    
-    constructor(private readonly tournamentID: ObjectId) {
-        return;
-    }
+type CreateChallengeStatus = OutcomeStatus;
 
-    /**
-     * A batch creation method for Challenge subdocuments. In case of duplicates in the batch or
-     * existing Challenges, the method will throw `BatchChallengeCreationError` and no Challenges
-     * will be created.
-     * @param challenges An array of freshly-created ChallengeDocument objects to be added to the Tournament.
-     * @returns An array of TournamentDocuments. Since order isn't guaranteed and since batch
-     * creation fails or succeeds together, the return value isn't useful outside of `await`ing completion
-     * completion in calling code.
-     */
-    public async createChallenges(challenges: ChallengeDocument[]): Promise<(TournamentDocument | null)[]> {
-        const singular = challenges.length === 1;
-        const tournamentDocument = await getTournamentById(this.tournamentID);
-        if (!tournamentDocument) throw new ChallengeCreationError(`Tournament with ID ${this.tournamentID} does not exist.`, `The challenge${singular ? ' was' : 's were'} not added. The tournament does not exist.`);
-
-        // Check for duplicate challenge names both in the batch and in the existing challenges.
-        challenges.forEach(async (newChallenge: Challenge) => {
-            if ((await tournamentDocument.get('resolvingChallenges')).includes(newChallenge))
-                throw new BatchChallengeCreationError(`Challenge ${newChallenge.name} already exists in tournament ${tournamentDocument.name}.`,
-                    `The challenge${singular ? ' was' : 's were'} not added. A challenge with the name ${newChallenge.name} already exists in tournament **${tournamentDocument.name}**.`);
-            if (challenges.filter((c: Challenge) => c.name === newChallenge.name).length > 1)
-                throw new BatchChallengeCreationError(`Duplicate challenge names ${newChallenge.name} found in batch.`,
-                    `The challenge${singular ? '' : 's'} were not added. Duplicate challenge names were found in the batch.`);
-        });
-
-        // No duplicates exist, so we are safe to add challenges in any order. 
-        // Since our backend query methods are meant to mimic (simple) API endpoints, no batch
-        // creation method exists (yet), so we must add each challenge individually.
-        const promises = new Array<Promise<TournamentDocument | null>>();
-        challenges.forEach(async (challenge: ChallengeDocument) => {
-            promises.push(addChallengeToTournament(tournamentDocument, challenge));
-        });
-        return Promise.all(promises);
-    }
-}
 
 /**
- * A class that handles the creation of Challenge subdocuments within a Tournament. It serves as a
- * wrapper around `ChallengeFactory` to simplify the creation of a single Challenge.
- * `ChallengeCreator`'s internals may resemble the Factory pattern at a glance, but this is merely
- * for readability. The class should not be used to create multiple Challenges.
+ * Union of specific and generic outcomes.
  */
-class ChallengeCreator {
-    private readonly tournamentName: string;
-    private readonly name: string;
-    private readonly description: string;
-    private readonly game: string;
-    private readonly difficulty: string;
-    private readonly visible: boolean;
-    private currentTournament: Promise<TournamentDocument | null>;
+type CreateChallengeOutcome = Outcome<string>;
 
-    constructor(private readonly guildID: string, options: CommandInteractionOptionResolverAlias) {
-        this.tournamentName = options.get('tournament', false)?.value as string ?? '';
-        this.name = options.get('name', true).value as string;
-        this.description = options.get('description', true).value as string;
-        this.game = options.get('game', true).value as string;
-        this.difficulty = options.get('difficulty', false)?.value as string ?? '';
-        this.visible = options.get('visible', false)?.value as boolean ?? true;
-        this.currentTournament = getCurrentTournament(this.guildID);
+/**
+ * Creates a single Challenge and adds it to a Tournament.
+ * @param guildId The Discord Guild ID.
+ * @param challengeName The new Challenge name, unique-checked in the specified or current Tournament by validation.
+ * @param game The name of the game or other medium.
+ * @param description The longer Challenge description.
+ * @param visible Whether the Challenge will be visible to contestants.
+ * @param tournamentName The name of the Tournament the Challenge is part of. If provided, it should
+ * exist (checked by validation); otherwise, defaults to the current Tournament.
+ * @param difficulty The emoji representing the Challenge difficulty. If provided, it should exist;
+ * (checked by validation) otherwise, defaults to the default difficulty.
+ * @returns A CreateChallengeOutcome, in all cases.
+ */
+const createChallenge = async (guildId: string, challengeName: string, game: string, description: string, visible: boolean, tournamentName?: string | undefined, difficulty?: string | undefined): Promise<CreateChallengeOutcome> => {
+    try {
+        // Ensure the Tournament and Difficulty exists
+        const tournament = tournamentName ? await getTournamentByName(guildId, tournamentName) : await getCurrentTournament(guildId);
+
+        // Create the challenge
+        const challenge = await ChallengeModel.create({
+            name: challengeName,
+            description: description,
+            game: game,
+            difficulty: difficulty ? (await getDifficultyByEmoji(tournament!, difficulty))!._id : null,
+            visibility: visible ?? false,
+        });
+
+        // Add the challenge to the tournament
+        await addChallengeToTournament(tournament!, challenge);
+
+        return ({
+            status: OutcomeStatus.SUCCESS_DUO,
+            body: {
+                data1: challenge.name,
+                context1: 'challengeName',
+                data2: tournament!.name,
+                context2: 'tournamentName',
+            },
+        });
+    } catch (err) {
+        // No expected thrown errors
     }
 
-    async createChallenge(): Promise<void> {
-        // Use the specified tournament if provided. Otherwise attempt to use the current tournament, failing if there is none.
-        let tournament: TournamentDocument | null;
-        if (this.tournamentName) {
-            // A tournament was specified -- use it
-            tournament = await getTournamentByName(this.guildID, this.tournamentName);
-            if (!tournament) throw new ChallengeCreationError(`Tournament ${this.tournamentName} not found in guild ${this.guildID}.`, `That tournament, **${this.tournamentName}**, was not found.`);
-        } else {
-            // No tournament was specified...
-            if (await this.currentTournament) {
-                // ... and there is a current tournament -- use it
-                tournament = await this.currentTournament;
+    return ({
+        status: OutcomeStatus.FAIL_UNKNOWN,
+        body: {},
+    });
+};
 
-            } else {
-                // ... and there is no current tournament -- fail
-                throw new ChallengeCreationError(`Guild ${this.guildID} has no current tournament.`, 'There is no current tournament. Make sure there is one, or specify your non-active tournament.');
-            }
-        }
+const createChallengeSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<CreateChallengeOutcome> => {
+    const guildId = interaction.guildId!;
 
-        // Validate the difficulty, if provided
-        let difficultyDocument: DifficultyDocument | null = null;
-        if (this.difficulty) {
-            difficultyDocument = await getDifficultyByEmoji(tournament!, this.difficulty);
-            if (!difficultyDocument) throw new ChallengeCreationError(`Difficulty ${this.difficulty} not found in tournament ${this.tournamentName}`, `The challenge was not created. The difficulty you chose, ${this.difficulty}, does not exist in the tournament **${tournament!.name}**. Remember that difficulties are identified by single emojis.`);
-        }
+    const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([
+        ['member', [
+            // Ensure that the sender is a Judge or Administrator
+            {
+                category: OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS,
+                func: async function(metadata: ValueOf<LimitedCommandInteraction>): Promise<boolean> {
+                    const judge = await getJudgeByGuildIdAndMemberId(guildId, (metadata as GuildMember).id);
+                    return (judge && judge.isActiveJudge) || (metadata as GuildMember).permissions.has(PermissionsBitField.Flags.Administrator);
+                },
+            },
+        ]],
+    ]);
+
+    const challengeName = interaction.options.get('name', true);
+    const tournament = interaction.options.get('tournament', false);
+    const difficulty = interaction.options.get('difficulty', false);
+
+    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
+        [tournament, [
+            // Ensure that the tournament exists, if it was provided
+            // This occurs before UNDEFAULTABLE constraint to discriminate the case of a nonexistent
+            // specified tournament name for the sake of the user feedback message
+            {
+                category: OptionValidationErrorStatus.OPTION_DNE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = await getTournamentByName(guildId, option as string);
+                    return tournamentDocument !== null;
+                }
+            },
+        ]],
+        // Remaining checks have SOME tournament as a precondition, whether the selected or default
+        // In-order constraints ensure this is validated first
+        [challengeName, [
+            // Ensure that either the specified Tournament exists or there is a current Tournament
+            // This constraint hijacks the required option challengeName and does not use its value
+            {
+                category: OptionValidationErrorStatus.OPTION_UNDEFAULTABLE,
+                func: async function(_: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
+                    return tournamentDocument !== null;
+                },
+            },
+            // Ensure that the Challenge name is unique for the Tournament
+            {
+                category: OptionValidationErrorStatus.OPTION_DUPLICATE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
+                    if (!tournamentDocument) return false;
+                    const tournamentChallenges = await tournamentDocument.get('resolvingChallenges') as ChallengeDocument[];
+                    return !(tournamentChallenges.some((challenge: ChallengeDocument) => challenge.name === option as string));
+                },
+            },
+        ]],
+        [difficulty, [
+            // Ensure that the difficulty exists, if it was provided
+            {
+                category: OptionValidationErrorStatus.OPTION_DNE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
+                    if (!tournamentDocument) return false;
+                    const difficultyDocument = await getDifficultyByEmoji(tournamentDocument, option as string);
+                    return difficultyDocument !== null;
+                }
+            },
+        ]],
         
-        await new ChallengeFactory(tournament!._id).createChallenges([await ChallengeModel.create({
-            name: this.name,
-            description: this.description,
-            game: this.game,
-            difficulty: (difficultyDocument ? difficultyDocument._id : difficultyDocument),
-            visibility: this.visible,
-        })]);
+    ]);
+
+    let game: string;
+    let description: string;
+    let visible: boolean;
+    try {
+        game = interaction.options.get('game', true).value as string;
+        description = interaction.options.get('description', true).value as string;
+        visible = interaction.options.get('visible', false)?.value !== undefined ? interaction.options.get('visible', false)?.value as boolean : true;
+
+        await validateConstraints(interaction, metadataConstraints, optionConstraints);
+    } catch (err) {
+        if (err instanceof OptionValidationError) return ({
+            status: OutcomeStatus.FAIL_VALIDATION,
+            body: {
+                constraint: err.constraint,
+                field: err.field,
+                value: err.value,
+                context: err.message,
+            },
+        });
+
+        throw err;
     }
-}
+
+    return await createChallenge(guildId, challengeName.value as string, game, description, visible, (tournament ? tournament.value as string : undefined), (difficulty ? difficulty.value as string : undefined));
+    
+};
+
+const createChallengeSlashCommandDescriptions = new Map<CreateChallengeStatus, (o: CreateChallengeOutcome) => SlashCommandDescribedOutcome>([
+    [OutcomeStatus.SUCCESS_DUO, (o: CreateChallengeOutcome) => ({
+        userMessage: `✅ The challenge **${(o as OutcomeWithDuoBody<string>).body.data1}** was added to tournament **${(o as OutcomeWithDuoBody<string>).body.data2}**.`, ephemeral: true,
+    })],
+    [OutcomeStatus.FAIL_VALIDATION, (o: CreateChallengeOutcome) => {
+        const oBody = (o as OptionValidationErrorOutcome<string>).body;
+        if (oBody.constraint.category === OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS) return ({
+            userMessage: `❌ You do not have permission to use this command.`, ephemeral: true,
+        });
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DNE) return ({
+            userMessage: `❌ The ${oBody.field} **${oBody.value}** was not found.`, ephemeral: true,
+        });
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_UNDEFAULTABLE) return ({
+            userMessage: `❌ There is no current tournament. You must either specify a tournament by name or activate a tournament, then try again.`, ephemeral: true,
+        });
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DUPLICATE) return ({
+            userMessage: `❌ A challenge named **${oBody.value}** already exists in the tournament.`, ephemeral: true,
+        });
+        else return ({
+            userMessage: `❌ This command failed due to a validation error.`, ephemeral: true,
+        });
+    }],
+]);
+
+const createChallengeSlashCommandOutcomeDescriber = async (interaction: LimitedCommandInteraction): Promise<SlashCommandDescribedOutcome> => {
+    const outcome = await createChallengeSlashCommandValidator(interaction);
+    if (createChallengeSlashCommandDescriptions.has(outcome.status)) return createChallengeSlashCommandDescriptions.get(outcome.status)!(outcome);
+    // Fallback to trying default descriptions
+    const defaultOutcome = outcome as Outcome<string>;
+    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
+        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
+    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
+};
+
+const createChallengeSlashCommandReplyer = async (interaction: CommandInteraction): Promise<void> => {
+    const describedOutcome = await createChallengeSlashCommandOutcomeDescriber(limitCommandInteraction(interaction));
+    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
+};
 
 const CreateChallengeCommand = new CustomCommand(
     new SlashCommandBuilder()
@@ -139,24 +228,7 @@ const CreateChallengeCommand = new CustomCommand(
         .addStringOption(option => option.setName('difficulty').setDescription('The emoji representing the challenge level. Defaults to default difficulty.').setRequired(false))
         .addBooleanOption(option => option.setName('visible').setDescription('Whether the challenge is visible to contestants. Defaults true.').setRequired(false)) as SlashCommandBuilder,
     async (interaction: CommandInteraction) => {
-        // TODO: Privileges check
-
-
-        try {
-            await new ChallengeCreator(interaction.guildId!, interaction.options).createChallenge();
-            interaction.reply({ content: `✅ Challenge created!`, ephemeral: true });
-        } catch (err) {
-            if (err instanceof UserFacingError) {
-                interaction.reply({ content: `❌ ${err.userMessage}`, ephemeral: true });
-                return;
-            } else if (err instanceof DuplicateSubdocumentError) { // TODO: refactor this logic to have a UserFacingError thrown that provides this message
-                interaction.reply({ content: `❌ The challenge was not created. A challenge with that name already exists in the tournament.`, ephemeral: true });
-                return;
-            }
-            console.error(`Error in create-challenge.ts: ${err}`);
-            interaction.reply({ content: `❌ There was an error while creating the challenge!`, ephemeral: true });
-            return;
-        }
+        await createChallengeSlashCommandReplyer(interaction);
     }
 );
 
