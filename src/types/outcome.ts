@@ -53,6 +53,10 @@ export type OptionValidationErrorOutcome<T> = {
     },
 };
 
+export const isValidationErrorOutcome = <T>(x: unknown): x is OptionValidationErrorOutcome<T> => {
+    return (x as OptionValidationErrorOutcome<T>).status === OutcomeStatus.FAIL_VALIDATION;
+};
+
 export type OutcomeWithDuoListBody<T, U> = {
     status: OutcomeStatus.SUCCESS_NO_CHANGE,
     body: {
