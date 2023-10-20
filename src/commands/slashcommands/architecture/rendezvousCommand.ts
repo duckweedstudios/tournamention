@@ -4,9 +4,9 @@ import { LimitedCommandInteraction, limitCommandInteraction } from '../../../typ
 
 export interface RendezvousCommand<S, T1, T2 = void> {
     readonly interfacer: SlashCommandBuilder | undefined;
-    readonly replyer: (describedOutcome: SlashCommandDescribedOutcome) => Promise<void>;
+    readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome) => Promise<void>;
     readonly describer: (outcome: Outcome<T1, T2>) => SlashCommandDescribedOutcome; // TODO: Generalize a DescribedOutcome type when/as needed
-    readonly validator: (interaction: LimitedCommandInteraction) => Promise<S> | Outcome<T1, T2>; // Generics for solverParams or (e.g. OptionValidationError)Outcome
+    readonly validator: (interaction: LimitedCommandInteraction) => Promise<S | Outcome<T1, T2>>; // Generics for solverParams or (e.g. OptionValidationError)Outcome
     readonly solver: (solverParams: S) => Promise<Outcome<T1, T2>>;
 
     readonly execute: (interaction: CommandInteraction) => Promise<void>;
@@ -15,9 +15,9 @@ export interface RendezvousCommand<S, T1, T2 = void> {
 export class RendezvousSlashCommand<S, T1, T2 = void> implements RendezvousCommand<S, T1, T2> {
     constructor(
         public readonly interfacer: SlashCommandBuilder,
-        public readonly replyer: (describedOutcome: SlashCommandDescribedOutcome) => Promise<void>,
+        public readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome) => Promise<void>,
         public readonly describer: (outcome: Outcome<T1, T2>) => SlashCommandDescribedOutcome,
-        public readonly validator: (interaction: LimitedCommandInteraction) => Promise<S> | OptionValidationErrorOutcome<T1>,
+        public readonly validator: (interaction: LimitedCommandInteraction) => Promise<S | OptionValidationErrorOutcome<T1>>,
         public readonly solver: (solverParams: S) => Promise<Outcome<T1, T2>>
     ) {
         this.interfacer = interfacer;
@@ -43,6 +43,6 @@ export class RendezvousSlashCommand<S, T1, T2 = void> implements RendezvousComma
         // Describer step
         const describedOutcome = this.describer(outcome);
         // Replyer step
-        await this.replyer(describedOutcome);
+        await this.replyer(interaction, describedOutcome);
     }
 }
