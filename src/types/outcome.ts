@@ -67,4 +67,12 @@ export type OutcomeWithDuoListBody<T, U> = {
     },
 };
 
-export type Outcome<T, U = void> = OutcomeWithEmptyBody | OutcomeWithMonoBody<T> | OutcomeWithDuoBody<T> | OutcomeWithDuoListBody<T, U> | OptionValidationErrorOutcome<T>;
+/**
+ * A placeholder outcome type for when no custom outcomes are needed.
+ */
+type PlaceholderOutcome = {
+    status: OutcomeStatus.FAIL,
+    body: EmptyObject
+}
+
+export type Outcome<T, U = void, V = PlaceholderOutcome> = OutcomeWithEmptyBody | OutcomeWithMonoBody<T> | OutcomeWithDuoBody<T> | OutcomeWithDuoListBody<T, U> | OptionValidationErrorOutcome<T> | V;
