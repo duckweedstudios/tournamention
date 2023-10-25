@@ -1,13 +1,23 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField, User } from 'discord.js';
-import { CustomCommand } from '../types/customCommand.js';
 import { NonexistentJointGuildAndMemberError, OptionValidationError, OptionValidationErrorStatus, UnknownError } from '../types/customError.js';
 import { setJudgeActive, setOrCreateActiveJudge } from '../backend/queries/profileQueries.js';
-import { LimitedCommandInteraction, limitCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithDuoListBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
+import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithDuoListBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
 import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
+import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+
+/**
+ * Alias for the first generic type of the command.
+ */
+type T1 = string | boolean;
+
+/**
+ * Alias for the second generic type of the command.
+ */
+type T2 = string | boolean;
 
 /**
  * Status codes specific to this command.
@@ -43,25 +53,32 @@ type AssignJudgeSuccessJudgeCreatedOutcome = {
 /**
  * Union of specific and generic outcomes.
  */
-type AssignJudgeOutcome = AssignJudgeSuccessJudgeUpdatedOutcome | AssignJudgeSuccessJudgeCreatedOutcome | Outcome<string | boolean, string | boolean>;
+type AssignJudgeOutcome = Outcome<T1, T2, AssignJudgeSuccessJudgeUpdatedOutcome | AssignJudgeSuccessJudgeCreatedOutcome>;
 
 /**
- * 
- * @param guildId The Discord guild ID.
- * @param memberId The Discord member ID.
- * @param revoke If `true`, sets the Judge to inactive. Otherwise, sets the Judge to active.
- * @returns 
+ * Parameters for the solver function, as well as the "S" generic type.
  */
-const assignJudge = async (guildId: string, memberId: string, revoke?: boolean): Promise<AssignJudgeOutcome> => {
+interface AssignJudgeSolverParams {
+    guildId: string;
+    memberId: string;
+    revoke: boolean;
+}
+
+/**
+ * Assigns a member the Judge privilege, or revokes it.
+ * @param params The parameters object for the solver function.
+ * @returns An `AssignJudgeOutcome`, in all cases.
+ */
+const assignJudgeSolver = async (params: AssignJudgeSolverParams): Promise<AssignJudgeOutcome> => {
     try {
-        const result = await (revoke ? setJudgeActive(guildId, memberId, false) : setOrCreateActiveJudge(guildId, memberId));
+        const result = await (params.revoke ? setJudgeActive(params.guildId, params.memberId, false) : setOrCreateActiveJudge(params.guildId, params.memberId));
         if (result.matchedCount === 1 && result.modifiedCount === 0) return ({
             // The Judge already exists and is already in the desired state
             status: OutcomeStatus.SUCCESS_NO_CHANGE,
             body: {
-                data1: [memberId],
+                data1: [params.memberId],
                 context1: 'memberId',
-                data2: [!revoke],
+                data2: [!params.revoke],
                 context2: 'isActiveJudge',
             },
         });
@@ -69,20 +86,20 @@ const assignJudge = async (guildId: string, memberId: string, revoke?: boolean):
             // The Judge already exists and was modified to the desired state
             status: AssignJudgeSpecificStatus.SUCCESS_JUDGE_UPDATED,
             body: {
-                user: memberId,
-                active: revoke ? false : true,
+                user: params.memberId,
+                active: params.revoke ? false : true,
             },
         });
-        if (result.matchedCount === 0 && (result.upsertedCount === 1 || !revoke)) return ({
+        if (result.matchedCount === 0 && (result.upsertedCount === 1 || !params.revoke)) return ({
             // The Judge did not exist and was created with an active status, or they (ineffectually) tried to unrevoke a nonexistent Judge
             status: AssignJudgeSpecificStatus.SUCCESS_JUDGE_CREATED,
             body: {
-                user: memberId,
+                user: params.memberId,
             },
         });
         if (result.matchedCount === 0) {
             // The Judge did not exist and was not created -- i.e. they tried to revoke a nonexistent Judge
-            throw new NonexistentJointGuildAndMemberError(guildId, memberId);
+            throw new NonexistentJointGuildAndMemberError(params.guildId, params.memberId);
         } else throw new UnknownError(`Error in assign-judge.ts: Unexpected query result: ${result}.`);
     } catch (err) {
         if (err instanceof NonexistentJointGuildAndMemberError) return ({
@@ -102,7 +119,7 @@ const assignJudge = async (guildId: string, memberId: string, revoke?: boolean):
     };
 };
 
-const assignJudgeSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<AssignJudgeOutcome> => {
+const assignJudgeSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<AssignJudgeSolverParams | OptionValidationErrorOutcome<T1>> => {
     let guildId: string;
     let targetId: string;
     let revoke: boolean;
@@ -155,7 +172,11 @@ const assignJudgeSlashCommandValidator = async (interaction: LimitedCommandInter
         throw err;
     }
 
-    return await assignJudge(guildId, targetId, revoke);
+    return {
+        guildId: guildId,
+        memberId: targetId,
+        revoke: revoke,
+    };
 };
 
 const assignJudgeSlashCommandDescriptions = new Map<AssignJudgeStatus, (o: AssignJudgeOutcome) => SlashCommandDescribedOutcome>([
@@ -166,18 +187,15 @@ const assignJudgeSlashCommandDescriptions = new Map<AssignJudgeStatus, (o: Assig
         userMessage: `✅ <@${(o as AssignJudgeSuccessJudgeCreatedOutcome).body.user}> is now a new judge!`, ephemeral: true   
     })],
     [OutcomeStatus.SUCCESS_NO_CHANGE, (o: AssignJudgeOutcome) => ({
-        userMessage: `✅ <@${(o as OutcomeWithDuoListBody<string, boolean>).body.data1[0]}> is already ${(o as OutcomeWithDuoListBody<string, boolean>).body.data2[0] ? '' : 'not '}a judge.`, ephemeral: true   
+        userMessage: `✅ <@${(o as OutcomeWithDuoListBody<T1, T2>).body.data1[0]}> is already ${(o as OutcomeWithDuoListBody<T1, T2>).body.data2[0] ? '' : 'not '}a judge.`, ephemeral: true   
     })],
     [OutcomeStatus.FAIL_DNE_DUO, (o: AssignJudgeOutcome) => ({
-        userMessage: `❌ <@${(o as OutcomeWithDuoBody<string>).body.data2}> is not a judge, so you cannot revoke them.`, ephemeral: true   
+        userMessage: `❌ <@${(o as OutcomeWithDuoBody<T1>).body.data2}> is not a judge, so you cannot revoke them.`, ephemeral: true   
     })],
 ]);
 
-const assignJudgeSlashCommandOutcomeDescriber = async (interaction: LimitedCommandInteraction): Promise<SlashCommandDescribedOutcome> => {
-    const outcome = await assignJudgeSlashCommandValidator(interaction);
-    if (assignJudgeSlashCommandDescriptions.has(outcome.status)) {
-        return assignJudgeSlashCommandDescriptions.get(outcome.status)!(outcome);
-    } 
+const assignJudgeSlashCommandOutcomeDescriber = (outcome: AssignJudgeOutcome): SlashCommandDescribedOutcome => {
+    if (assignJudgeSlashCommandDescriptions.has(outcome.status)) return assignJudgeSlashCommandDescriptions.get(outcome.status)!(outcome);
     // Fallback to trying default descriptions
     const defaultOutcome = outcome as Outcome<string>;
     if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
@@ -187,20 +205,20 @@ const assignJudgeSlashCommandOutcomeDescriber = async (interaction: LimitedComma
     }
 };
 
-const assignJudgeCommandReplyer = async (interaction: CommandInteraction): Promise<void> => {
-    const describedOutcome = await assignJudgeSlashCommandOutcomeDescriber(limitCommandInteraction(interaction));
+const assignJudgeCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
     interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
 };
 
-const AssignJudgeSlashCommand = new CustomCommand(
+const AssignJudgeSlashCommand = new RendezvousSlashCommand<AssignJudgeOutcome, AssignJudgeSolverParams, T1>(
     new SlashCommandBuilder()
         .setName('assign-judge')
         .setDescription('Assign someone as a judge for challenge submissions in all tournaments, or revoke judge permissions.')
         .addUserOption(option => option.setName('who').setDescription('The new judge to assign, or whose permissions to modify.').setRequired(true))
         .addBooleanOption(option => option.setName('revoke').setDescription('To revoke an existing judge, use True. To re-assign a judge, use False or leave this blank.').setRequired(false)) as SlashCommandBuilder,
-    async (interaction: CommandInteraction) => {
-        await assignJudgeCommandReplyer(interaction);
-    }
+    assignJudgeCommandReplyer,
+    assignJudgeSlashCommandOutcomeDescriber,
+    assignJudgeSlashCommandValidator,
+    assignJudgeSolver,
 );
 
 export default AssignJudgeSlashCommand;
