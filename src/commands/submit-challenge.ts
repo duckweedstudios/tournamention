@@ -1,6 +1,5 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteraction, CommandInteractionOption } from 'discord.js';
-import { CustomCommand } from '../types/customCommand.js';
 import { getTournamentByName } from '../backend/queries/tournamentQueries.js';
 import { SubmissionDocument } from '../types/customDocument.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
@@ -10,10 +9,21 @@ import { getOrCreateContestant } from '../backend/queries/profileQueries.js';
 import { createSubmission, getSubmissionsForChallengeFromContestant } from '../backend/queries/submissionQueries.js';
 import { SubmissionStatus } from '../backend/schemas/submission.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
-import { LimitedCommandInteraction, limitCommandInteraction } from '../types/limitedCommandInteraction.js';
+import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
 import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
+import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+
+/**
+ * Alias for the first generic type of the command.
+ */
+type T1 = string;
+
+/**
+ * Alias for the second generic type of the command.
+ */
+type T2 = void;
 
 /**
  * Status codes specific to this command.
@@ -45,16 +55,24 @@ type SubmitChallengeSpecificOutcome = {
 /**
  * Union of specific and generic outcomes.
  */
-type SubmitChallengeOutcome = SubmitChallengeSpecificOutcome | Outcome<string>;
+type SubmitChallengeOutcome = Outcome<T1, T2, SubmitChallengeSpecificOutcome>;
 
-const submitChallenge = async (guildId: string, challengeName: string, contestantId: string, proofLink: string, tournamentName?: string): Promise<SubmitChallengeOutcome> => {
+interface SubmitChallengeSolverParams {
+    guildId: string;
+    challengeName: string;
+    contestantId: string;
+    proofLink: string;
+    tournamentName?: string;
+}
+
+const submitChallengeSolver = async (params: SubmitChallengeSolverParams): Promise<SubmitChallengeOutcome> => {
     try {
         // Ensure the Tournament and Challenge exist
-        const tournament = tournamentName ? await getTournamentByName(guildId, tournamentName) : await getCurrentTournament(guildId);
+        const tournament = params.tournamentName ? await getTournamentByName(params.guildId, params.tournamentName) : await getCurrentTournament(params.guildId);
         if (!tournament) return ({
             status: OutcomeStatus.FAIL_DNE_MONO,
             body: {
-                data: tournamentName ? tournamentName : '(currentTournament)',
+                data: params.tournamentName ? params.tournamentName : '(currentTournament)',
                 context: 'tournament',
             }
         });
@@ -70,11 +88,11 @@ const submitChallenge = async (guildId: string, challengeName: string, contestan
                 data: tournament ? tournament.name : '(currentTournament)',
             }
         });
-        const challenge = await getChallengeOfTournamentByName(challengeName, tournament);
+        const challenge = await getChallengeOfTournamentByName(params.challengeName, tournament);
         if (!challenge) return ({
             status: OutcomeStatus.FAIL_DNE_DUO,
             body: {
-                data1: challengeName,
+                data1: params.challengeName,
                 context1: 'challenge',
                 data2: tournament.name,
                 context2: 'tournament',
@@ -86,7 +104,7 @@ const submitChallenge = async (guildId: string, challengeName: string, contestan
                 data: challenge.name,
             }
         });
-        const contestant = await getOrCreateContestant(guildId, contestantId);
+        const contestant = await getOrCreateContestant(params.guildId, params.contestantId);
 
         // Fail if contestant already has pending or accepted submission for this challenge
         const submissions = await getSubmissionsForChallengeFromContestant(challenge, contestant);
@@ -108,7 +126,7 @@ const submitChallenge = async (guildId: string, challengeName: string, contestan
         }
 
         // Create the submission
-        await createSubmission(challenge, contestant, proofLink);
+        await createSubmission(challenge, contestant, params.proofLink);
 
         return ({
             status: OutcomeStatus.SUCCESS_MONO,
@@ -127,7 +145,7 @@ const submitChallenge = async (guildId: string, challengeName: string, contestan
     });
 };
 
-const submitChallengeSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<SubmitChallengeOutcome> => {
+const submitChallengeSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<SubmitChallengeSolverParams | OptionValidationErrorOutcome<T1>> => {
     const guildId = interaction.guildId!;
 
     const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([]);
@@ -167,12 +185,19 @@ const submitChallengeSlashCommandValidator = async (interaction: LimitedCommandI
         throw err;
     }
 
-    return await submitChallenge(guildId, challengeName, interaction.member!.user!.id, proofLink, (tournament ? tournament.value as string : undefined));
+    // return await submitChallenge(guildId, challengeName, interaction.member!.user!.id, proofLink, (tournament ? tournament.value as string : undefined));
+    return {
+        guildId: guildId,
+        challengeName: challengeName,
+        contestantId: interaction.member!.user!.id,
+        proofLink: proofLink,
+        tournamentName: (tournament ? tournament.value as string : undefined),
+    };
 };
 
 const submitChallengeSlashCommandDescriptions = new Map<SubmitChallengeStatus, (o: SubmitChallengeOutcome) => SlashCommandDescribedOutcome>([
     [OutcomeStatus.SUCCESS_MONO, (o: SubmitChallengeOutcome) => ({
-        userMessage: `✅ Submission for **${(o as OutcomeWithMonoBody<string>).body.data}** sent for review!`, ephemeral: true,
+        userMessage: `✅ Submission for **${(o as OutcomeWithMonoBody<T1>).body.data}** sent for review!`, ephemeral: true,
     })],
     [SubmitChallengeSpecificStatus.FAIL_TOURNAMENT_HIDDEN, (o: SubmitChallengeOutcome) => {
         if ((o as SubmitChallengeSpecificOutcome).body.data === '(currentTournament)') return ({
@@ -192,7 +217,7 @@ const submitChallengeSlashCommandDescriptions = new Map<SubmitChallengeStatus, (
         userMessage: `❌ Your previous submission to **${(o as SubmitChallengeSpecificOutcome).body.data}** is either waiting to be approved or was already approved.`, ephemeral: true,
     })],
     [OutcomeStatus.FAIL_DNE_MONO, (o: SubmitChallengeOutcome) => {
-        const oBody = (o as OutcomeWithMonoBody<string>).body;
+        const oBody = (o as OutcomeWithMonoBody<T1>).body;
         if (oBody.context === 'tournament') return (
             oBody.data === '(currentTournament)' ? ({
                 userMessage: `❌ The current tournament was not found.`, ephemeral: true
@@ -205,7 +230,7 @@ const submitChallengeSlashCommandDescriptions = new Map<SubmitChallengeStatus, (
         });
     }],
     [OutcomeStatus.FAIL_DNE_DUO, (o: SubmitChallengeOutcome) => {
-        const oBody = (o as OutcomeWithDuoBody<string>).body;
+        const oBody = (o as OutcomeWithDuoBody<T1>).body;
         if (oBody.context1 === 'challenge' && oBody.context2 === 'tournament') return ({
             userMessage: `❌ The challenge **${oBody.data1}** was not found in the tournament **${oBody.data2}**.`, ephemeral: true
         });
@@ -214,7 +239,7 @@ const submitChallengeSlashCommandDescriptions = new Map<SubmitChallengeStatus, (
         });
     }],
     [OutcomeStatus.FAIL_VALIDATION, (o: SubmitChallengeOutcome) => {
-        const oBody = (o as OptionValidationErrorOutcome<string>).body;
+        const oBody = (o as OptionValidationErrorOutcome<T1>).body;
         if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DNE) return ({
             userMessage: `❌ The tournament **${oBody.value}** was not found.`, ephemeral: true
         });
@@ -224,8 +249,7 @@ const submitChallengeSlashCommandDescriptions = new Map<SubmitChallengeStatus, (
     }],
 ]);
 
-const submitChallengeSlashCommandOutcomeDescriber = async (interaction: LimitedCommandInteraction): Promise<SlashCommandDescribedOutcome> => {
-    const outcome = await submitChallengeSlashCommandValidator(interaction);
+const submitChallengeSlashCommandOutcomeDescriber = (outcome: SubmitChallengeOutcome): SlashCommandDescribedOutcome => {
     if (submitChallengeSlashCommandDescriptions.has(outcome.status)) return submitChallengeSlashCommandDescriptions.get(outcome.status)!(outcome);
     // Fallback to trying default descriptions
     const defaultOutcome = outcome as Outcome<string>;
@@ -234,21 +258,21 @@ const submitChallengeSlashCommandOutcomeDescriber = async (interaction: LimitedC
     } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
 };
 
-const judgeSubmissionSlashCommandReplyer = async (interaction: CommandInteraction): Promise<void> => {
-    const describedOutcome = await submitChallengeSlashCommandOutcomeDescriber(limitCommandInteraction(interaction));
+const judgeSubmissionSlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
     interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
 };
 
-const SubmitChallengeCommand = new CustomCommand(
+const SubmitChallengeCommand = new RendezvousSlashCommand<SubmitChallengeOutcome, SubmitChallengeSolverParams, T1>(
     new SlashCommandBuilder()
         .setName('submit-challenge')
         .setDescription('Send your submission for a challenge you completed, along with proof.')
         .addStringOption(option => option.setName('name').setDescription('The name of the challenge.').setRequired(true))
         .addStringOption(option => option.setName('proof-link').setDescription('Your proof of completing the challenge. Linkless? Send it on this server then Copy Message Link!').setRequired(true))
         .addStringOption(option => option.setName('tournament').setDescription('The tournament the challenge is part of. Defaults to current tournament.').setRequired(false)) as SlashCommandBuilder,
-    async (interaction: CommandInteraction) => {
-        await judgeSubmissionSlashCommandReplyer(interaction);
-    }
+    judgeSubmissionSlashCommandReplyer,
+    submitChallengeSlashCommandOutcomeDescriber,
+    submitChallengeSlashCommandValidator,
+    submitChallengeSolver,
 );
 
 export default SubmitChallengeCommand;
