@@ -62,7 +62,7 @@ type AssignJudgeSuccessSubmissionAppealedOutcome = {
 /**
  * Union of specific and generic outcomes.
  */
-type JudgeSubmissionOutcome = AssignJudgeSuccessSubmissionReviewedOutcome | AssignJudgeSuccessSubmissionAppealedOutcome | Outcome<string, boolean>;
+type JudgeSubmissionOutcome = Outcome<T1, T2, AssignJudgeSuccessSubmissionReviewedOutcome | AssignJudgeSuccessSubmissionAppealedOutcome>;
 
 interface JudgeSubmissionSolverParams {
     guildId: string;
