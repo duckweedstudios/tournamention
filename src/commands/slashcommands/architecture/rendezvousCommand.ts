@@ -35,10 +35,8 @@ export class RendezvousSlashCommand<O, S, T1> implements RendezvousCommand<O, S,
         let outcome: O; // Minimize code duplication from validation result branching
         if (isValidationErrorOutcome(solverParamsOrValidationErrorOutcome)) {
             // Validation failed: skip solver step
-            // The double cast should (intentionally) error when an incorrect type is provided for O.
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore: Type conversion without overlap (TS2352)
-            outcome = (solverParamsOrValidationErrorOutcome as OptionValidationErrorOutcome<T1>) as O;
+            // The double cast will eventually error when a command provides an incorrect type for O.
+            outcome = solverParamsOrValidationErrorOutcome as OptionValidationErrorOutcome<T1> as unknown as O;
         } else {
             // Validation succeeded: proceed to solver step
             outcome = await this.solver(solverParamsOrValidationErrorOutcome as S);
