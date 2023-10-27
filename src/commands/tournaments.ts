@@ -203,7 +203,7 @@ const tournamentsSlashCommandValidator = async (interaction: LimitedCommandInter
  */
 const formatTournamentDetails = (tournament: ResolvedTournament): string => {
     // **My Tournament** (5 challenges
-    let message = `**${tournament.name}** (${tournament.challenges.length} ${tournament.challenges.length !== 0 ? 'challenges' : 'challenge'}`;
+    let message = `**${tournament.name}** (${tournament.challenges.length} ${tournament.challenges.length !== 1 ? 'challenges' : 'challenge'}`;
     // :
     if (tournament.challenges.some(challenge => challenge.difficulty)) message += ':';
     // 2 🔥 1 💀
