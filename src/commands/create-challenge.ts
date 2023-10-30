@@ -39,7 +39,7 @@ type CreateChallengeStatus = OutcomeStatus;
 /**
  * Union of specific and generic outcomes.
  */
-type CreateChallengeOutcome = Outcome<T1>;
+type CreateChallengeOutcome = Outcome<T1, T2>;
 
 /**
  * Parameters for the solver function, as well as the "S" generic type.
@@ -227,7 +227,7 @@ const createChallengeSlashCommandDescriptions = new Map<CreateChallengeStatus, (
 const createChallengeSlashCommandOutcomeDescriber = (outcome: CreateChallengeOutcome): SlashCommandDescribedOutcome => {
     if (createChallengeSlashCommandDescriptions.has(outcome.status)) return createChallengeSlashCommandDescriptions.get(outcome.status)!(outcome);
     // Fallback to trying default descriptions
-    const defaultOutcome = outcome as Outcome<T1>;
+    const defaultOutcome = outcome as Outcome<string>;
     if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
         return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
     } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
@@ -237,7 +237,7 @@ const createChallengeSlashCommandReplyer = async (interaction: CommandInteractio
     interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
 };
 
-const CreateChallengeCommand = new RendezvousSlashCommand<CreateChallengeSolverParams, T1, T2>(
+const CreateChallengeCommand = new RendezvousSlashCommand<CreateChallengeOutcome, CreateChallengeSolverParams, T1>(
     new SlashCommandBuilder()
         .setName('create-challenge')
         .setDescription('Create a challenge.')

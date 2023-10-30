@@ -1,24 +1,24 @@
 import { CommandInteraction, SlashCommandBuilder } from 'discord.js';
-import { OptionValidationErrorOutcome, Outcome, SlashCommandDescribedOutcome, isValidationErrorOutcome } from '../../../types/outcome.js';
+import { OptionValidationErrorOutcome, SlashCommandDescribedOutcome, isValidationErrorOutcome } from '../../../types/outcome.js';
 import { LimitedCommandInteraction, limitCommandInteraction } from '../../../types/limitedCommandInteraction.js';
 
-export interface RendezvousCommand<S, T1, T2 = void> {
+export interface RendezvousCommand<O, S, T1> {
     readonly interfacer: SlashCommandBuilder | undefined;
     readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome) => Promise<void>;
-    readonly describer: (outcome: Outcome<T1, T2>) => SlashCommandDescribedOutcome; // TODO: Generalize a DescribedOutcome type when/as needed
-    readonly validator: (interaction: LimitedCommandInteraction) => Promise<S | Outcome<T1, T2>>; // Generics for solverParams or (e.g. OptionValidationError)Outcome
-    readonly solver: (solverParams: S) => Promise<Outcome<T1, T2>>;
+    readonly describer: (outcome: O) => SlashCommandDescribedOutcome; // TODO: Generalize a DescribedOutcome type when/as needed
+    readonly validator: (interaction: LimitedCommandInteraction) => Promise<S | OptionValidationErrorOutcome<T1>>; // Generics for solverParams or (e.g. OptionValidationError)Outcome
+    readonly solver: (solverParams: S) => Promise<O>;
 
     readonly execute: (interaction: CommandInteraction) => Promise<void>;
 }
 
-export class RendezvousSlashCommand<S, T1, T2 = void> implements RendezvousCommand<S, T1, T2> {
+export class RendezvousSlashCommand<O, S, T1> implements RendezvousCommand<O, S, T1> {
     constructor(
         public readonly interfacer: SlashCommandBuilder,
         public readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome) => Promise<void>,
-        public readonly describer: (outcome: Outcome<T1, T2>) => SlashCommandDescribedOutcome,
+        public readonly describer: (outcome: O) => SlashCommandDescribedOutcome,
         public readonly validator: (interaction: LimitedCommandInteraction) => Promise<S | OptionValidationErrorOutcome<T1>>,
-        public readonly solver: (solverParams: S) => Promise<Outcome<T1, T2>>
+        public readonly solver: (solverParams: S) => Promise<O>,
     ) {
         this.interfacer = interfacer;
         this.replyer = replyer;
@@ -32,10 +32,11 @@ export class RendezvousSlashCommand<S, T1, T2 = void> implements RendezvousComma
         const limitedCommandInteraction = limitCommandInteraction(interaction);
         // Validator step
         const solverParamsOrValidationErrorOutcome = await this.validator(limitedCommandInteraction);
-        let outcome: Outcome<T1, T2>; // Minimize code duplication from validation result branching
+        let outcome: O; // Minimize code duplication from validation result branching
         if (isValidationErrorOutcome(solverParamsOrValidationErrorOutcome)) {
             // Validation failed: skip solver step
-            outcome = solverParamsOrValidationErrorOutcome as OptionValidationErrorOutcome<T1>;
+            // The double cast will eventually error when a command provides an incorrect type for O.
+            outcome = solverParamsOrValidationErrorOutcome as OptionValidationErrorOutcome<T1> as unknown as O;
         } else {
             // Validation succeeded: proceed to solver step
             outcome = await this.solver(solverParamsOrValidationErrorOutcome as S);
