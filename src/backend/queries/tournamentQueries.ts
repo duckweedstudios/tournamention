@@ -122,7 +122,7 @@ export const getDifficultiesOfTournament = async (tournamentId: Ref<Tournament> 
 
 // UPDATE / PUT
 export const updateTournament = async (id: ObjectId, update: UpdateTournamentParams): Promise<TournamentDocument | null> => {
-    return TournamentModel.findByIdAndUpdate(id, { $set: update });
+    return TournamentModel.findByIdAndUpdate(id, { $set: update }, { new: true }).exec();
 };
 
 export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, challenge: ChallengeDocument): Promise<TournamentDocument> => {
