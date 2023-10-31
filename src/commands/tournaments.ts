@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { getTournamentsByGuild } from '../backend/queries/tournamentQueries.js';
-import { ResolvedTournament, TournamentDocument } from '../types/customDocument.js';
+import { ResolvedTournament, resolveTournaments } from '../types/customDocument.js';
 import { OptionValidationError } from '../types/customError.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
 import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
@@ -46,21 +46,6 @@ interface TournamentsSolverParams {
     guildId: string;
     judgeView: boolean;
 }
-
-/**
- * Business logic helper method to convert TournamentDocuments to ResolvedTournaments, thus
- * decoupling the data used by the describer from the database.
- * @param tournaments The list of TournamentDocuments that would be returned in the Outcome.
- * @returns The converted list of ResolvedTournaments, in the same order as the input.
- */
-const resolveTournaments = async (tournaments: TournamentDocument[]): Promise<ResolvedTournament[]> => {
-    const resolvedTournaments: ResolvedTournament[] = [];
-    for (const tournament of tournaments) {
-        const resolvedTournament = await new ResolvedTournament(tournament).make();
-        resolvedTournaments.push(resolvedTournament);
-    }
-    return resolvedTournaments;
-};
 
 /**
  * Retrieves all the tournaments for a given guild.
