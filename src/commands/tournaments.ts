@@ -186,7 +186,7 @@ const tournamentsSlashCommandValidator = async (interaction: LimitedCommandInter
  * 
  * {status description} ({duration})
  */
-const formatTournamentDetails = (tournament: ResolvedTournament): string => {
+export const formatTournamentDetails = (tournament: ResolvedTournament): string => {
     // **My Tournament** (5 challenges
     let message = `**${tournament.name}** (${tournament.challenges.length} ${tournament.challenges.length !== 1 ? 'challenges' : 'challenge'}`;
     // :
