@@ -1,79 +1,287 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction } from 'discord.js';
-import { CustomCommand } from '../types/customCommand.js';
-import { UserFacingError } from '../types/customError.js';
-import { getTournamentByName } from '../backend/queries/tournamentQueries.js';
-import { CommandInteractionOptionResolverAlias } from '../types/discordTypeAlias.js';
-import { ChallengeDocument, DifficultyDocument, TournamentDocument } from '../types/customDocument.js';
+import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { getDifficultyByEmoji, getTournamentByName } from '../backend/queries/tournamentQueries.js';
+import { DifficultyDocument } from '../types/customDocument.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-import { updateChallengeById } from '../backend/queries/challengeQueries.js';
-import { Difficulty } from '../backend/schemas/difficulty.js';
+import { getChallengeOfTournamentByName, updateChallengeById } from '../backend/queries/challengeQueries.js';
+import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
+import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
+import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
+import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
+import { ValueOf } from '../types/typelogic.js';
+import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
+import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
 
-class EditChallengeError extends UserFacingError {
-    constructor(message: string, userMessage: string) {
-        super(message, userMessage);
-        this.name = 'EditTournamentError';
-    }
+/**
+ * Alias for the first generic type of the command.
+ */
+type T1 = string;
+
+/**
+ * Alias for the second generic type of the command.
+ */
+type T2 = string;
+
+/**
+ * Status codes specific to this command.
+ */
+enum _EditChallengeSpecificStatus {
+
+}
+
+/**
+ * Union of specific and generic status codes.
+ */
+type EditChallengeStatus = OutcomeStatus;
+
+/**
+ * Union of specific and generic outcomes.
+ */
+type EditChallengeOutcome = Outcome<T1, T2>;
+
+/**
+ * Parameters for the solver function, as well as the "S" generic type.
+ */
+interface EditChallengeSolverParams {
+    guildId: string;
+    name: string;
+    tournamentName?: string | undefined;
+    newName?: string | undefined;
+    description?: string | undefined;
+    difficulty?: string | undefined;
+    game?: string | undefined;
+    visible?: boolean | undefined;
 }
 
 /**
  * Performs the entire editing process on a Challenge.
- * @param guildID `interaction.guildId`
- * @param options `interaction.options`
- * @returns The updated ChallengeDocument, or null if the `updateChallenge` call failed, which would only happen in a hypothetically possible race condition.
- * @throws `EditChallengeError` if the Tournament is not found by name.
+ * @param params The parameters object for the solver function.
+ * @returns An EditChallengeOutcome, in all cases.
  */
-const editChallenge = async (guildID: string, options: CommandInteractionOptionResolverAlias): Promise<ChallengeDocument | null> => {
-    const name = options.get('name', true).value as string;
-    const tournamentName = options.get('tournament', false)?.value as string ?? null;
-    const newName = options.get('new-name', false)?.value as string ?? null;
-    const description = options.get('description', false)?.value as string ?? null;
-    const difficulty = options.get('difficulty', false)?.value as string ?? null;
-    const game = options.get('game', false)?.value as string ?? null;
-    const visible = options.get('visible', false)?.value as boolean ?? null;
-
-    // Resolve desired tournament
-    let tournament: TournamentDocument | null;
-    if (tournamentName)  {
-        // A tournament was specified -- use it
-        tournament = await getTournamentByName(guildID, tournamentName);
-        if (!tournament) throw new EditChallengeError(`Tournament ${tournamentName} not found in guild ${guildID}.`, `That tournament, **${tournamentName}**, was not found.`);
-    } else {
-        // No tournament was specified...
-        const currentTournament = await getCurrentTournament(guildID);
-        if (currentTournament) {
-            // ... and there is a current tournament -- use it
-            tournament = currentTournament;
-        } else {
-            // ... and there is no current tournament -- fail
-            throw new EditChallengeError(`Guild ${guildID} has no current tournament.`, 'There is no current tournament. Make sure there is one, or specify your non-active tournament.');
+const editChallengeSolver = async (params: EditChallengeSolverParams): Promise<EditChallengeOutcome> => {
+    try {
+        const tournament = params.tournamentName ? await getTournamentByName(params.guildId, params.tournamentName) : await getCurrentTournament(params.guildId);
+        if (!tournament) return {
+            status: OutcomeStatus.FAIL_DNE_MONO,
+            body: {
+                data: params.tournamentName ?? 'current tournament',
+                context: 'tournament',
+            },
+        };
+        let difficultyDocument: DifficultyDocument | null = null;
+        if (params.difficulty) {
+            difficultyDocument = await getDifficultyByEmoji(tournament, params.difficulty);
         }
+        const challenge = await getChallengeOfTournamentByName(params.name, tournament!);
+        if (!challenge) return {
+            status: OutcomeStatus.FAIL_DNE_DUO,
+            body: {
+                data1: params.name,
+                context1: 'challenge',
+                data2: tournament.name,
+                context2: 'tournament',
+            },
+        };
+
+        const challengeUpdate = await updateChallengeById(
+            challenge._id,
+            {
+                ...(params.newName && { name: params.newName }),
+                ...(params.description && { description: params.description }),
+                ...((params.difficulty && difficultyDocument) && { difficulty: difficultyDocument._id }),
+                ...(params.game && { game: params.game }),
+                ...(params.visible !== null && { visibility: params.visible }),
+            }
+        );
+        if (!challengeUpdate) return {
+            status: OutcomeStatus.FAIL_UNKNOWN,
+            body: {},
+        };
+
+        if (params.newName) return {
+            status: OutcomeStatus.SUCCESS_DUO,
+            body: {
+                data1: params.name,
+                context1: 'old challenge name',
+                data2: params.newName,
+                context2: 'new challenge name',
+            },
+        };
+        return {
+            status: OutcomeStatus.SUCCESS_MONO,
+            body: {
+                data: params.name,
+                context: 'challenge',
+            },
+        };
+    } catch (err) {
+        // No expected thrown errors
     }
 
-    // Resolve desired challenge
-    const challenge = (await tournament.get('resolvingChallenges')).find((c: ChallengeDocument) => c.name === name);
-    if (!challenge) throw new EditChallengeError(`Challenge ${name} not found in tournament ${tournamentName}.`, `That challenge, **${name}**, was not found in the tournament **${tournamentName}**.`);
-
-    // Resolve desired difficulty
-    let difficultyObject: Difficulty | undefined;
-    if (difficulty) {
-        difficultyObject = await tournament.get('resolvedDifficulties').find((d: DifficultyDocument) => d.emoji === difficulty);
-        if (!difficultyObject) throw new EditChallengeError(`Difficulty ${difficulty} not found in tournament ${tournamentName}`, `The challenge was not edited. The difficulty you chose, ${difficulty}, does not exist in the tournament **${tournamentName}**. Remember that difficulties are identified by single emojis.`);
-    }
-
-    return updateChallengeById(
-        challenge._id,
-        {
-            ...(newName && { name: newName }),
-            ...(description && { description: description }),
-            ...((difficulty && difficultyObject) && { difficulty: difficultyObject._id }),
-            ...(game && { game: game }),
-            ...(visible !== null && { visibility: visible }),
-        }
-    );
+    return {
+        status: OutcomeStatus.FAIL_UNKNOWN,
+        body: {},
+    };
 };
 
-const EditChallengeCommand = new CustomCommand(
+const editChallengeSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<EditChallengeSolverParams | OptionValidationErrorOutcome<T1>> => {
+    const guildId = interaction.guildId!;
+    const name = interaction.options.get('name', true);
+    const tournament = interaction.options.get('tournament', false);
+    const difficulty = interaction.options.get('difficulty', false);
+    const newName = interaction.options.get('new-name', false);
+
+    const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([
+        ['member', [
+            // Ensure that the sender is a Judge or Administrator
+            {
+                category: OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS,
+                func: async function(metadata: ValueOf<LimitedCommandInteraction>): Promise<boolean> {
+                    const judge = await getJudgeByGuildIdAndMemberId(guildId, (metadata as GuildMember).id);
+                    return (judge && judge.isActiveJudge) || (metadata as GuildMember).permissions.has(PermissionsBitField.Flags.Administrator);
+                },
+            },
+        ]],
+    ]);
+    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
+        [tournament, [
+            // Ensure that the tournament exists, if it was provided
+            // This occurs before UNDEFAULTABLE constraint to discriminate the case of a nonexistent
+            // specified tournament name for the sake of the user feedback message
+            {
+                category: OptionValidationErrorStatus.OPTION_DNE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = await getTournamentByName(guildId, option as string);
+                    return tournamentDocument !== null;
+                }
+            },
+        ]],
+        // Remaining checks have SOME tournament as a precondition, whether the selected or default
+        // In-order constraints ensure this is validated first
+        [name, [
+            // Ensure that either the specified Tournament exists or there is a current Tournament
+            // This constraint hijacks the required option name and does not use its value
+            {
+                category: OptionValidationErrorStatus.OPTION_UNDEFAULTABLE,
+                func: async function(_: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
+                    return tournamentDocument !== null;
+                },
+            },
+            // Ensure that the challenge exists
+            {
+                category: OptionValidationErrorStatus.OPTION_DNE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
+                    if (!tournamentDocument) return false;
+                    const challengeDocument = await getChallengeOfTournamentByName(option as string, tournamentDocument);
+                    return challengeDocument !== null;
+                }
+            }
+        ]],
+        [difficulty, [
+            // Ensure that the difficulty exists, if it was provided
+            {
+                category: OptionValidationErrorStatus.OPTION_DNE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
+                    if (!tournamentDocument) return false;
+                    const difficultyDocument = await getDifficultyByEmoji(tournamentDocument, option as string);
+                    return difficultyDocument !== null;
+                }
+            },
+        ]],
+        [newName, [
+            // Ensure that no challenge exists already with the new name in the tournament
+            {
+                category: OptionValidationErrorStatus.OPTION_DUPLICATE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
+                    if (!tournamentDocument) return false;
+                    const challengeDocument = await getChallengeOfTournamentByName(option as string, tournamentDocument);
+                    return challengeDocument === null;
+                }
+            },
+        ]],
+    ]);
+
+    const game = interaction.options.get('game', false)?.value as string;
+    const description = interaction.options.get('description', false)?.value as string;
+    const visible = interaction.options.get('visible', false)?.value as boolean;
+    try {
+        await validateConstraints(interaction, metadataConstraints, optionConstraints);
+    } catch (err) {
+        if (err instanceof OptionValidationError) return ({
+            status: OutcomeStatus.FAIL_VALIDATION,
+            body: {
+                constraint: err.constraint,
+                field: err.field,
+                value: err.value,
+                context: err.message,
+            },
+        });
+
+        throw err;
+    }
+
+    return {
+        guildId: guildId,
+        name: name.value as string,
+        newName: newName ? newName.value as string : undefined,
+        game: game,
+        description: description,
+        visible: visible,
+        tournamentName: tournament ? tournament.value as string : undefined,
+        difficulty: difficulty ? difficulty.value as string : undefined,
+    };
+};
+
+const editChallengeSlashCommandDescriptions = new Map<EditChallengeStatus, (o: EditChallengeOutcome) => SlashCommandDescribedOutcome>([
+    [OutcomeStatus.SUCCESS_MONO, (o: EditChallengeOutcome) => ({
+        userMessage: `✅ Challenge **${(o as OutcomeWithMonoBody<T1>).body.data}** updated!`, ephemeral: true,
+    })],
+    [OutcomeStatus.SUCCESS_DUO, (o: EditChallengeOutcome) => ({
+        userMessage: `✅ Challenge **${(o as OutcomeWithDuoBody<T1>).body.data2}** (formerly known as **${(o as OutcomeWithDuoBody<T1>).body.data1}**) updated!`, ephemeral: true,
+    })],
+    [OutcomeStatus.FAIL_VALIDATION, (o: EditChallengeOutcome) => {
+        const oBody = (o as OptionValidationErrorOutcome<T1>).body;
+        if (oBody.constraint.category === OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS) return ({
+            userMessage: `❌ You do not have permission to use this command.`, ephemeral: true,
+        });
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DNE) {
+            if (oBody.field === 'name') return {
+                userMessage: `❌ The challenge **${oBody.value}** was not found.`, ephemeral: true,
+            };
+            else return {
+                userMessage: `❌ The ${oBody.field} **${oBody.value}** was not found.`, ephemeral: true,
+            };
+        } else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_UNDEFAULTABLE) return ({
+            userMessage: `❌ There is no current tournament. You must either specify a tournament by name or activate a tournament, then try again.`, ephemeral: true,
+        });
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DUPLICATE) return ({
+            userMessage: `❌ A challenge named **${oBody.value}** already exists in the tournament.`, ephemeral: true,
+        });
+        else return ({
+            userMessage: `❌ This command failed due to a validation error.`, ephemeral: true,
+        });
+    }],
+]);
+
+const editChallengeSlashCommandOutcomeDescriber = (outcome: EditChallengeOutcome): SlashCommandDescribedOutcome => {
+    if (editChallengeSlashCommandDescriptions.has(outcome.status)) return editChallengeSlashCommandDescriptions.get(outcome.status)!(outcome);
+    // Fallback to trying default descriptions
+    const defaultOutcome = outcome as Outcome<string>;
+    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
+        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
+    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
+};
+
+const editChallengeSlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
+    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
+};
+
+const EditChallengeCommand = new RendezvousSlashCommand<EditChallengeOutcome, EditChallengeSolverParams, T1>(
     new SlashCommandBuilder()
         .setName('edit-challenge')
         .setDescription('Edit the details of a Challenge.')
@@ -84,21 +292,25 @@ const EditChallengeCommand = new CustomCommand(
         .addStringOption(option => option.setName('difficulty').setDescription(`Change the challenge's difficulty, using the emoji of a difficulty that exists in the tournament.`).setRequired(false))
         .addStringOption(option => option.setName('game').setDescription('Change the game this challenge is for, or something else like "IRL".').setRequired(false))
         .addBooleanOption(option => option.setName('visible').setDescription('Change whether the tournament can be seen by non-judges.').setRequired(false)) as SlashCommandBuilder,
-    async (interaction: CommandInteraction) => {
-        // TODO: Privileges check
+    // async (interaction: CommandInteraction) => {
+    //     // TODO: Privileges check
 
-        try {
-            if (!(await editChallenge(interaction.guildId!, interaction.options))) throw new Error(`editChallenge returned null.`);
-            interaction.reply({ content: `✅ Challenge updated!`, ephemeral: true });
-        } catch (err) {
-            if (err instanceof UserFacingError) {
-                interaction.reply({ content: `❌ ${err.userMessage}`, ephemeral: true });
-                return;
-            }
-            console.error(`Error in edit-challenge.ts: ${err}`);
-            interaction.reply({ content: `❌ There was an error while updating the challenge!`, ephemeral: true });
-        }
-    }
+    //     try {
+    //         if (!(await editChallenge(interaction.guildId!, interaction.options))) throw new Error(`editChallenge returned null.`);
+    //         interaction.reply({ content: `✅ Challenge updated!`, ephemeral: true });
+    //     } catch (err) {
+    //         if (err instanceof UserFacingError) {
+    //             interaction.reply({ content: `❌ ${err.userMessage}`, ephemeral: true });
+    //             return;
+    //         }
+    //         console.error(`Error in edit-challenge.ts: ${err}`);
+    //         interaction.reply({ content: `❌ There was an error while updating the challenge!`, ephemeral: true });
+    //     }
+    // }
+    editChallengeSlashCommandReplyer,
+    editChallengeSlashCommandOutcomeDescriber,
+    editChallengeSlashCommandValidator,
+    editChallengeSolver,
 );
 
 export default EditChallengeCommand;
