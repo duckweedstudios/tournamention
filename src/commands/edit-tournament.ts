@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOption } from 'discord.js';
+import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { getTournamentByName, updateTournament } from '../backend/queries/tournamentQueries.js';
 import { ResolvedTournament, resolveTournaments } from '../types/customDocument.js';
 import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
@@ -10,6 +10,7 @@ import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
 import { formatTournamentDetails } from './tournaments.js';
+import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -100,8 +101,20 @@ const editTournamentSolver = async (params: EditTournamentSolverParams): Promise
 const editTournamentSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<EditTournamentSolverParams | OptionValidationErrorOutcome<T1>> => {
     const guildId = interaction.guildId!;
     const name = interaction.options.get('name', true);
+    const newName = interaction.options.get('new-name', false);
 
-    const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([]);
+    const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([
+        ['member', [
+            // Ensure that the sender is a Judge or Administrator
+            {
+                category: OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS,
+                func: async function(metadata: ValueOf<LimitedCommandInteraction>): Promise<boolean> {
+                    const judge = await getJudgeByGuildIdAndMemberId(guildId, (metadata as GuildMember).id);
+                    return (judge && judge.isActiveJudge) || (metadata as GuildMember).permissions.has(PermissionsBitField.Flags.Administrator);
+                },
+            },
+        ]],
+    ]);
     const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
         [name, [
             // Ensure that the tournament exists
@@ -113,16 +126,28 @@ const editTournamentSlashCommandValidator = async (interaction: LimitedCommandIn
                 }
             }
         ]],
+        [newName, [
+            // Ensure that no other Tournament exists with the same name
+            {
+                category: OptionValidationErrorStatus.OPTION_DUPLICATE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = await getTournamentByName(guildId, option as string);
+                    return tournamentDocument === null;
+                },
+            },
+        ]],
     ]);
 
-    const newName = interaction.options.get('new-name', false)?.value as string ?? undefined;
+    
     const photoURI = interaction.options.get('photo-uri', false)?.value as string ?? undefined;
     const visible = interaction.options.get('visible', false)?.value !== undefined ? interaction.options.get('visible', false)?.value as boolean : undefined;
     const active = interaction.options.get('active', false)?.value !== undefined ? interaction.options.get('active', false)?.value as boolean : undefined;
     const statusDescription = interaction.options.get('status-description', false)?.value as string ?? undefined;
     const duration = interaction.options.get('duration', false)?.value as string ?? undefined;
 
+    const newNameString = newName?.value as string ?? undefined;
     try {
+
         await validateConstraints(interaction, metadataConstraints, optionConstraints);
     } catch (err) {
         if (err instanceof OptionValidationError) return {
@@ -141,7 +166,7 @@ const editTournamentSlashCommandValidator = async (interaction: LimitedCommandIn
     return {
         guildId,
         name: name.value as string,
-        newName,
+        newName: newNameString,
         photoURI,
         visible,
         active,
@@ -158,6 +183,12 @@ const editTournamentSlashCommandDescriptions = new Map<EditTournamentStatus, (o:
         const oBody = (o as OptionValidationErrorOutcome<T1>).body;
         if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DNE) return {
             userMessage: `❌ That tournament, **${oBody.value}**, was not found.`, ephemeral: true
+        };
+        if (oBody.constraint.category === OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS) return {
+            userMessage: `❌ You do not have permission to edit tournaments.`, ephemeral: true
+        };
+        if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DUPLICATE) return {
+            userMessage: `❌ A tournament with the name **${oBody.value}** already exists.`, ephemeral: true
         };
         else return {
             userMessage: `❌ This command failed unexpectedly due to a validation error.`, ephemeral: true
