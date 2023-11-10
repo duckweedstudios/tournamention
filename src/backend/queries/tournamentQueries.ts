@@ -19,6 +19,25 @@ export const createTournament = async (guildID: string, name: string, photoURI: 
     });
 };
 
+/**
+ * Creates a Difficulty document if emoji is unique in the Tournament, then adds it to the Tournament.
+ * @param tournamentId 
+ * @param emoji A single emoji string. Must be unique to the Tournament.
+ * @param pointValue A non-negative integer.
+ * @returns The `DifficultyDocument` of the new Difficulty.
+ * @throws `DuplicateSubdocumentError` if emoji already exists in the Tournament.
+ */
+export const createDifficultyInTournament = async (tournamentId: Ref<Tournament>, emoji: string, pointValue: number): Promise<DifficultyDocument> => {
+    const tournamentDifficulties = await getDifficultiesOfTournament(tournamentId);
+    if (tournamentDifficulties.some((difficulty) => difficulty.emoji === emoji)) throw new DuplicateSubdocumentError(`Error in createDifficulty: Difficulty with emoji ${emoji} already exists in tournament with ID ${tournamentId}.`);
+    const difficulty = await DifficultyModel.create({
+        emoji: emoji,
+        pointValue: pointValue,
+    });
+    await addDifficultyToTournament(tournamentId, difficulty);
+    return difficulty;
+};
+
 export class TournamentBuilder {
     private name: string | null;
     private photoURI: string;
@@ -140,7 +159,7 @@ export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, ch
 // export const addChallengesToTournament = async (tournamentID: Ref<Tournament>, challenges: ChallengeModel[]): Promise<TournamentDocument> => {
 // };
 
-export const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, difficulty: DifficultyDocument): Promise<TournamentDocument> => {
+const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, difficulty: DifficultyDocument): Promise<TournamentDocument> => {
     const tournament = await TournamentModel.findById(tournamentID);
     if (!tournament) throw new Error('Error in addDifficultyToTournament: Tournament not found.');
     const resolvedDifficulties = await tournament.get('resolvingDifficulties') as DifficultyDocument[];
