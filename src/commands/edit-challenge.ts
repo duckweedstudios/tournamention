@@ -292,21 +292,6 @@ const EditChallengeCommand = new RendezvousSlashCommand<EditChallengeOutcome, Ed
         .addStringOption(option => option.setName('difficulty').setDescription(`Change the challenge's difficulty, using the emoji of a difficulty that exists in the tournament.`).setRequired(false))
         .addStringOption(option => option.setName('game').setDescription('Change the game this challenge is for, or something else like "IRL".').setRequired(false))
         .addBooleanOption(option => option.setName('visible').setDescription('Change whether the tournament can be seen by non-judges.').setRequired(false)) as SlashCommandBuilder,
-    // async (interaction: CommandInteraction) => {
-    //     // TODO: Privileges check
-
-    //     try {
-    //         if (!(await editChallenge(interaction.guildId!, interaction.options))) throw new Error(`editChallenge returned null.`);
-    //         interaction.reply({ content: `✅ Challenge updated!`, ephemeral: true });
-    //     } catch (err) {
-    //         if (err instanceof UserFacingError) {
-    //             interaction.reply({ content: `❌ ${err.userMessage}`, ephemeral: true });
-    //             return;
-    //         }
-    //         console.error(`Error in edit-challenge.ts: ${err}`);
-    //         interaction.reply({ content: `❌ There was an error while updating the challenge!`, ephemeral: true });
-    //     }
-    // }
     editChallengeSlashCommandReplyer,
     editChallengeSlashCommandOutcomeDescriber,
     editChallengeSlashCommandValidator,
