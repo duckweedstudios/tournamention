@@ -1,51 +1,215 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction } from 'discord.js';
-import { CustomCommand } from '../types/customCommand.js';
-import { UserFacingError } from '../types/customError.js';
+import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { getTournamentByName, updateTournament } from '../backend/queries/tournamentQueries.js';
-import { CommandInteractionOptionResolverAlias } from '../types/discordTypeAlias.js';
-import { TournamentDocument } from '../types/customDocument.js';
+import { ResolvedTournament, resolveTournaments } from '../types/customDocument.js';
+import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
+import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
+import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
+import { ValueOf } from '../types/typelogic.js';
+import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
+import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
+import { formatTournamentDetails } from './tournaments.js';
+import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
 
-class EditTournamentError extends UserFacingError {
-    constructor(message: string, userMessage: string) {
-        super(message, userMessage);
-        this.name = 'EditTournamentError';
-    }
+/**
+ * Alias for the first generic type of the command.
+ */
+type T1 = ResolvedTournament[];
+
+/**
+ * Alias for the second generic type of the command.
+ */
+type T2 = void;
+
+/**
+ * Status codes specific to this command.
+ */
+enum _EditTournamentSpecificStatus {
+
+}
+
+/**
+ * Union of specific and generic status codes.
+ */
+type EditTournamentStatus = OutcomeStatus;
+
+
+/**
+ * Union of specific and generic outcomes.
+ */
+type EditTournamentOutcome = Outcome<T1, T2>;
+
+/**
+ * Parameters for the solver function, as well as the "S" generic type.
+ */
+interface EditTournamentSolverParams {
+    guildId: string;
+    name: string;
+    newName?: string | undefined;
+    photoURI?: string | undefined;
+    visible?: boolean | undefined;
+    active?: boolean | undefined;
+    statusDescription?: string | undefined;
+    duration?: string | undefined;
 }
 
 /**
  * Performs the entire editing process on a Tournament.
- * @param guildID `interaction.guildId`
- * @param options `interaction.options`
- * @returns The updated TournamentDocument, or null if the `updateTournament` call failed, which would only happen in a hypothetically possible race condition.
- * @throws `EditTournamentError` if the Tournament is not found by name.
+ * @param params The parameters object for the solver function.
+ * @returns A EditTournamentOutcome, in all cases.
  */
-const editTournament = async (guildID: string, options: CommandInteractionOptionResolverAlias): Promise<TournamentDocument | null> => {
-    const name = options.get('name', true).value as string;
-    const newName = options.get('new-name', false)?.value as string ?? null;
-    const photoURI = options.get('photo-uri', false)?.value as string ?? null;
-    const visible = options.get('visible', false)?.value as boolean ?? null;
-    const active = options.get('active', false)?.value as boolean ?? null;
-    const statusDescription = options.get('status-description', false)?.value as string ?? null;
-    const duration = options.get('duration', false)?.value as string ?? null;
+const editTournamentSolver = async (params: EditTournamentSolverParams): Promise<EditTournamentOutcome> => {
+    try {
+        const tournament = await getTournamentByName(params.guildId, params.name);
 
-    const tournament = await getTournamentByName(guildID, name);
-    if (!tournament) throw new EditTournamentError(`Tournament ${name} not found in guild ${guildID}.`, `That tournament, **${name}**, was not found.`);
-    return updateTournament(
-        tournament._id, 
-        // Conditionally add properties to the object. It would be almost equivalent to assign some but with the value undefined
-        {
-            ...(newName && { name: newName }),
-            ...(photoURI && { photoURI: photoURI }),
-            ...(active !== null && { active: active }),
-            ...(visible !== null && { visibility: visible }),
-            ...(statusDescription && { statusDescription: statusDescription }),
-            ...(duration && { duration: duration }),
-        }
-    );
+        const tournamentUpdate = await updateTournament(
+            tournament!._id, 
+            // Conditionally add properties to the object. It would be almost equivalent to assign some but with the value undefined
+            {
+                ...(params.newName && { name: params.newName }),
+                ...(params.photoURI && { photoURI: params.photoURI }),
+                ...(params.active !== null && { active: params.active }),
+                ...(params.visible !== null && { visibility: params.visible }),
+                ...(params.statusDescription && { statusDescription: params.statusDescription }),
+                ...(params.duration && { duration: params.duration }),
+            }
+        );
+
+        if (!tournamentUpdate) return {
+            status: OutcomeStatus.FAIL_UNKNOWN,
+            body: {},
+        };
+
+        return {
+            status: OutcomeStatus.SUCCESS_MONO,
+            body: {
+                data: await resolveTournaments([tournamentUpdate]),
+                context: `tournament`,
+            },
+        };
+    } catch (err) {
+        // No expected thrown errors
+    }
+
+    return {
+        status: OutcomeStatus.FAIL_UNKNOWN,
+        body: {},
+    };
 };
 
-const EditTournamentCommand = new CustomCommand(
+const editTournamentSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<EditTournamentSolverParams | OptionValidationErrorOutcome<T1>> => {
+    const guildId = interaction.guildId!;
+    const name = interaction.options.get('name', true);
+    const newName = interaction.options.get('new-name', false);
+
+    const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([
+        ['member', [
+            // Ensure that the sender is a Judge or Administrator
+            {
+                category: OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS,
+                func: async function(metadata: ValueOf<LimitedCommandInteraction>): Promise<boolean> {
+                    const judge = await getJudgeByGuildIdAndMemberId(guildId, (metadata as GuildMember).id);
+                    return (judge && judge.isActiveJudge) || (metadata as GuildMember).permissions.has(PermissionsBitField.Flags.Administrator);
+                },
+            },
+        ]],
+    ]);
+    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
+        [name, [
+            // Ensure that the tournament exists
+            {
+                category: OptionValidationErrorStatus.OPTION_DNE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = await getTournamentByName(guildId, option as string);
+                    return tournamentDocument !== null;
+                }
+            }
+        ]],
+        [newName, [
+            // Ensure that no other Tournament exists with the same name
+            {
+                category: OptionValidationErrorStatus.OPTION_DUPLICATE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = await getTournamentByName(guildId, option as string);
+                    return tournamentDocument === null;
+                },
+            },
+        ]],
+    ]);
+
+    
+    const photoURI = interaction.options.get('photo-uri', false)?.value as string ?? undefined;
+    const visible = interaction.options.get('visible', false)?.value !== undefined ? interaction.options.get('visible', false)?.value as boolean : undefined;
+    const active = interaction.options.get('active', false)?.value !== undefined ? interaction.options.get('active', false)?.value as boolean : undefined;
+    const statusDescription = interaction.options.get('status-description', false)?.value as string ?? undefined;
+    const duration = interaction.options.get('duration', false)?.value as string ?? undefined;
+
+    const newNameString = newName?.value as string ?? undefined;
+    try {
+
+        await validateConstraints(interaction, metadataConstraints, optionConstraints);
+    } catch (err) {
+        if (err instanceof OptionValidationError) return {
+            status: OutcomeStatus.FAIL_VALIDATION,
+            body: {
+                constraint: err.constraint,
+                field: err.field,
+                value: err.value,
+                context: err.message,
+            }
+        };
+
+        throw err;
+    }
+
+    return {
+        guildId,
+        name: name.value as string,
+        newName: newNameString,
+        photoURI,
+        visible,
+        active,
+        statusDescription,
+        duration,
+    };
+};
+
+const editTournamentSlashCommandDescriptions = new Map<EditTournamentStatus, (o: EditTournamentOutcome) => SlashCommandDescribedOutcome>([
+    [OutcomeStatus.SUCCESS_MONO, (o: EditTournamentOutcome) => ({
+        userMessage: `✅ Tournament updated!\n` + formatTournamentDetails((o as OutcomeWithMonoBody<T1>).body.data[0]), ephemeral: true
+    })],
+    [OutcomeStatus.FAIL_VALIDATION, (o: EditTournamentOutcome) => {
+        const oBody = (o as OptionValidationErrorOutcome<T1>).body;
+        if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DNE) return {
+            userMessage: `❌ That tournament, **${oBody.value}**, was not found.`, ephemeral: true
+        };
+        if (oBody.constraint.category === OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS) return {
+            userMessage: `❌ You do not have permission to edit tournaments.`, ephemeral: true
+        };
+        if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DUPLICATE) return {
+            userMessage: `❌ A tournament with the name **${oBody.value}** already exists.`, ephemeral: true
+        };
+        else return {
+            userMessage: `❌ This command failed unexpectedly due to a validation error.`, ephemeral: true
+        };
+    }],
+]);
+
+const editTournamentSlashCommandOutcomeDescriber = (outcome: EditTournamentOutcome): SlashCommandDescribedOutcome => {
+    if (editTournamentSlashCommandDescriptions.has(outcome.status)) return editTournamentSlashCommandDescriptions.get(outcome.status)!(outcome);
+    // Fallback to trying default descriptions
+    const defaultOutcome = outcome as Outcome<string>;
+    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
+        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
+    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
+};
+
+const editTournamentSlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
+    await interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
+};
+
+const EditTournamentCommand = new RendezvousSlashCommand<EditTournamentOutcome, EditTournamentSolverParams, T1>(
     new SlashCommandBuilder()
         .setName('edit-tournament')
         .setDescription('Edit the details of a Tournament.')
@@ -56,21 +220,10 @@ const EditTournamentCommand = new CustomCommand(
         .addBooleanOption(option => option.setName('active').setDescription('Change whether the tournament is accepting submissions now.').setRequired(false))
         .addStringOption(option => option.setName('status-description').setDescription('Change the explanation message for the tournament\'s current status.').setRequired(false))
         .addStringOption(option => option.setName('duration').setDescription('Change the message for when the tournament takes place.').setRequired(false)) as SlashCommandBuilder,
-    async (interaction: CommandInteraction) => {
-        // TODO: Privileges check
-
-        try {
-            if (!(await editTournament(interaction.guildId!, interaction.options))) throw new Error(`editTournament returned null.`);
-            interaction.reply({ content: `✅ Tournament updated!`, ephemeral: true });
-        } catch (err) {
-            if (err instanceof UserFacingError) {
-                interaction.reply({ content: `❌ ${err.userMessage}`, ephemeral: true });
-                return;
-            }
-            console.error(`Error in edit-tournament.ts: ${err}`);
-            interaction.reply({ content: `❌ There was an error while updating the tournament!`, ephemeral: true });
-        }
-    }
+    editTournamentSlashCommandReplyer,
+    editTournamentSlashCommandOutcomeDescriber,
+    editTournamentSlashCommandValidator,
+    editTournamentSolver,
 );
 
 export default EditTournamentCommand;

@@ -85,3 +85,18 @@ export class ResolvedTournament {
         return this;
     }
 }
+
+/**
+ * Business logic helper method to convert TournamentDocuments to ResolvedTournaments, thus
+ * decoupling the data used by the describer from the database.
+ * @param tournaments The list of TournamentDocuments that would be returned in the Outcome.
+ * @returns The converted list of ResolvedTournaments, in the same order as the input.
+ */
+export const resolveTournaments = async (tournaments: TournamentDocument[]): Promise<ResolvedTournament[]> => {
+    const resolvedTournaments: ResolvedTournament[] = [];
+    for (const tournament of tournaments) {
+        const resolvedTournament = await new ResolvedTournament(tournament).make();
+        resolvedTournaments.push(resolvedTournament);
+    }
+    return resolvedTournaments;
+};
