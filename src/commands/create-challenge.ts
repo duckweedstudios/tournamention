@@ -1,17 +1,27 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
-import { CustomCommand } from '../types/customCommand.js';
 import { addChallengeToTournament, getDifficultyByEmoji, getTournamentByName } from '../backend/queries/tournamentQueries.js';
 import { ChallengeDocument } from '../types/customDocument.js';
 import { ChallengeModel } from '../backend/schemas/challenge.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-import { LimitedCommandInteraction, limitCommandInteraction } from '../types/limitedCommandInteraction.js';
+import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
 import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
 import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
+import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+
+/**
+ * Alias for the first generic type of the command.
+ */
+type T1 = string;
+
+/**
+ * Alias for the second generic type of the command.
+ */
+type T2 = void;
 
 /**
  * Status codes specific to this command.
@@ -29,33 +39,38 @@ type CreateChallengeStatus = OutcomeStatus;
 /**
  * Union of specific and generic outcomes.
  */
-type CreateChallengeOutcome = Outcome<string>;
+type CreateChallengeOutcome = Outcome<T1, T2>;
+
+/**
+ * Parameters for the solver function, as well as the "S" generic type.
+ */
+interface CreateChallengeSolverParams {
+    guildId: string;
+    challengeName: string;
+    game: string;
+    description: string;
+    visible: boolean;
+    tournamentName?: string | undefined;
+    difficulty?: string | undefined;
+}
 
 /**
  * Creates a single Challenge and adds it to a Tournament.
- * @param guildId The Discord Guild ID.
- * @param challengeName The new Challenge name, unique-checked in the specified or current Tournament by validation.
- * @param game The name of the game or other medium.
- * @param description The longer Challenge description.
- * @param visible Whether the Challenge will be visible to contestants.
- * @param tournamentName The name of the Tournament the Challenge is part of. If provided, it should
- * exist (checked by validation); otherwise, defaults to the current Tournament.
- * @param difficulty The emoji representing the Challenge difficulty. If provided, it should exist;
- * (checked by validation) otherwise, defaults to the default difficulty.
+ * @param params The parameters object for the solver function.
  * @returns A CreateChallengeOutcome, in all cases.
  */
-const createChallenge = async (guildId: string, challengeName: string, game: string, description: string, visible: boolean, tournamentName?: string | undefined, difficulty?: string | undefined): Promise<CreateChallengeOutcome> => {
+const createChallengeSolver = async (params: CreateChallengeSolverParams): Promise<CreateChallengeOutcome> => {
     try {
         // Ensure the Tournament and Difficulty exists
-        const tournament = tournamentName ? await getTournamentByName(guildId, tournamentName) : await getCurrentTournament(guildId);
+        const tournament = params.tournamentName ? await getTournamentByName(params.guildId, params.tournamentName) : await getCurrentTournament(params.guildId);
 
         // Create the challenge
         const challenge = await ChallengeModel.create({
-            name: challengeName,
-            description: description,
-            game: game,
-            difficulty: difficulty ? (await getDifficultyByEmoji(tournament!, difficulty))!._id : null,
-            visibility: visible ?? false,
+            name: params.challengeName,
+            description: params.description,
+            game: params.game,
+            difficulty: params.difficulty ? (await getDifficultyByEmoji(tournament!, params.difficulty))!._id : null,
+            visibility: params.visible ?? false,
         });
 
         // Add the challenge to the tournament
@@ -80,7 +95,7 @@ const createChallenge = async (guildId: string, challengeName: string, game: str
     });
 };
 
-const createChallengeSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<CreateChallengeOutcome> => {
+const createChallengeSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<CreateChallengeSolverParams | OptionValidationErrorOutcome<T1>> => {
     const guildId = interaction.guildId!;
 
     const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([
@@ -174,16 +189,23 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
         throw err;
     }
 
-    return await createChallenge(guildId, challengeName.value as string, game, description, visible, (tournament ? tournament.value as string : undefined), (difficulty ? difficulty.value as string : undefined));
-    
+    return {
+        guildId: guildId,
+        challengeName: challengeName.value as string,
+        game: game,
+        description: description,
+        visible: visible,
+        tournamentName: tournament ? tournament.value as string : undefined,
+        difficulty: difficulty ? difficulty.value as string : undefined,
+    };
 };
 
 const createChallengeSlashCommandDescriptions = new Map<CreateChallengeStatus, (o: CreateChallengeOutcome) => SlashCommandDescribedOutcome>([
     [OutcomeStatus.SUCCESS_DUO, (o: CreateChallengeOutcome) => ({
-        userMessage: `✅ The challenge **${(o as OutcomeWithDuoBody<string>).body.data1}** was added to tournament **${(o as OutcomeWithDuoBody<string>).body.data2}**.`, ephemeral: true,
+        userMessage: `✅ The challenge **${(o as OutcomeWithDuoBody<T1>).body.data1}** was added to tournament **${(o as OutcomeWithDuoBody<T1>).body.data2}**.`, ephemeral: true,
     })],
     [OutcomeStatus.FAIL_VALIDATION, (o: CreateChallengeOutcome) => {
-        const oBody = (o as OptionValidationErrorOutcome<string>).body;
+        const oBody = (o as OptionValidationErrorOutcome<T1>).body;
         if (oBody.constraint.category === OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS) return ({
             userMessage: `❌ You do not have permission to use this command.`, ephemeral: true,
         });
@@ -202,8 +224,7 @@ const createChallengeSlashCommandDescriptions = new Map<CreateChallengeStatus, (
     }],
 ]);
 
-const createChallengeSlashCommandOutcomeDescriber = async (interaction: LimitedCommandInteraction): Promise<SlashCommandDescribedOutcome> => {
-    const outcome = await createChallengeSlashCommandValidator(interaction);
+const createChallengeSlashCommandOutcomeDescriber = (outcome: CreateChallengeOutcome): SlashCommandDescribedOutcome => {
     if (createChallengeSlashCommandDescriptions.has(outcome.status)) return createChallengeSlashCommandDescriptions.get(outcome.status)!(outcome);
     // Fallback to trying default descriptions
     const defaultOutcome = outcome as Outcome<string>;
@@ -212,12 +233,11 @@ const createChallengeSlashCommandOutcomeDescriber = async (interaction: LimitedC
     } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
 };
 
-const createChallengeSlashCommandReplyer = async (interaction: CommandInteraction): Promise<void> => {
-    const describedOutcome = await createChallengeSlashCommandOutcomeDescriber(limitCommandInteraction(interaction));
+const createChallengeSlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
     interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
 };
 
-const CreateChallengeCommand = new CustomCommand(
+const CreateChallengeCommand = new RendezvousSlashCommand<CreateChallengeOutcome, CreateChallengeSolverParams, T1>(
     new SlashCommandBuilder()
         .setName('create-challenge')
         .setDescription('Create a challenge.')
@@ -227,9 +247,10 @@ const CreateChallengeCommand = new CustomCommand(
         .addStringOption(option => option.setName('tournament').setDescription('The tournament the challenge is part of. Defaults to current tournament.').setRequired(false))
         .addStringOption(option => option.setName('difficulty').setDescription('The emoji representing the challenge level. Defaults to default difficulty.').setRequired(false))
         .addBooleanOption(option => option.setName('visible').setDescription('Whether the challenge is visible to contestants. Defaults true.').setRequired(false)) as SlashCommandBuilder,
-    async (interaction: CommandInteraction) => {
-        await createChallengeSlashCommandReplyer(interaction);
-    }
+    createChallengeSlashCommandReplyer,
+    createChallengeSlashCommandOutcomeDescriber,
+    createChallengeSlashCommandValidator,
+    createChallengeSolver,
 );
 
 export default CreateChallengeCommand;

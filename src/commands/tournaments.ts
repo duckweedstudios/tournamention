@@ -1,16 +1,26 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
-import { CustomCommand } from '../types/customCommand.js';
 import { getTournamentsByGuild } from '../backend/queries/tournamentQueries.js';
-import { ResolvedTournament, TournamentDocument } from '../types/customDocument.js';
+import { ResolvedTournament, resolveTournaments } from '../types/customDocument.js';
 import { OptionValidationError } from '../types/customError.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-import { LimitedCommandInteraction, limitCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
+import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
 import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
 import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
+import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+
+/**
+ * Alias for the first generic type of the command.
+ */
+type T1 = ResolvedTournament[];
+
+/**
+ * Alias for the second generic type of the command.
+ */
+type T2 = void;
 
 /**
  * Status codes specific to this command.
@@ -27,22 +37,15 @@ type TournamentsStatus = OutcomeStatus;
 /**
  * Union of specific and generic outcomes.
  */
-type TournamentsOutcome = Outcome<ResolvedTournament[]>;
+type TournamentsOutcome = Outcome<T1, T2>;
 
 /**
- * Business logic helper method to convert TournamentDocuments to ResolvedTournaments, thus
- * decoupling the data used by the describer from the database.
- * @param tournaments The list of TournamentDocuments that would be returned in the Outcome.
- * @returns The converted list of ResolvedTournaments, in the same order as the input.
+ * Parameters for the solver function, as well as the "S" generic type.
  */
-const resolveTournaments = async (tournaments: TournamentDocument[]): Promise<ResolvedTournament[]> => {
-    const resolvedTournaments: ResolvedTournament[] = [];
-    for (const tournament of tournaments) {
-        const resolvedTournament = await new ResolvedTournament(tournament).make();
-        resolvedTournaments.push(resolvedTournament);
-    }
-    return resolvedTournaments;
-};
+interface TournamentsSolverParams {
+    guildId: string;
+    judgeView: boolean;
+}
 
 /**
  * Retrieves all the tournaments for a given guild.
@@ -52,16 +55,16 @@ const resolveTournaments = async (tournaments: TournamentDocument[]): Promise<Re
  * Otherwise, the tournaments are in order of creation (recent-first). If the first tournament in the list isn't
  * active, then there is no current tournament -- thus no active tournaments either.
  */
-const tournaments = async (guildId: string, judgeView: boolean): Promise<TournamentsOutcome> => {
+const tournamentsSolver = async (params: TournamentsSolverParams): Promise<TournamentsOutcome> => {
     try {
-        const allTournaments = await getTournamentsByGuild(guildId);
+        const allTournaments = await getTournamentsByGuild(params.guildId);
         if (!allTournaments) return {
             status: OutcomeStatus.FAIL,
             body: {},
         };
-        if (judgeView) {
+        if (params.judgeView) {
             // Place the current tournament first in the list
-            const currentTournament = await getCurrentTournament(guildId);
+            const currentTournament = await getCurrentTournament(params.guildId);
             if (!currentTournament) {
                 // No current tournament, but there are tournaments
                 allTournaments.reverse();
@@ -89,7 +92,7 @@ const tournaments = async (guildId: string, judgeView: boolean): Promise<Tournam
                 body: {},
             });
             // Place the current tournament first in the list
-            const currentTournament = await getCurrentTournament(guildId);
+            const currentTournament = await getCurrentTournament(params.guildId);
             if (!currentTournament) {
                 // No current tournament, but there are tournaments
                 allTournaments.reverse();
@@ -135,7 +138,7 @@ const tournaments = async (guildId: string, judgeView: boolean): Promise<Tournam
     });
 };
 
-const tournamentsSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<TournamentsOutcome> => {
+const tournamentsSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<TournamentsSolverParams | OptionValidationErrorOutcome<T1>> => {
     // Validator for this command has the unique responsibility of determining whether to call
     // business logic method for Judge/Admin or Contestant data
     const guildId = interaction.guildId!;
@@ -168,8 +171,10 @@ const tournamentsSlashCommandValidator = async (interaction: LimitedCommandInter
 
     const judgeView = !contestantView && memberIsJudgeOrAdmin;
 
-    return await tournaments(guildId, judgeView);
-    
+    return {
+        guildId: guildId,
+        judgeView: judgeView,
+    };
 };
 
 /**
@@ -181,9 +186,9 @@ const tournamentsSlashCommandValidator = async (interaction: LimitedCommandInter
  * 
  * {status description} ({duration})
  */
-const formatTournamentDetails = (tournament: ResolvedTournament): string => {
+export const formatTournamentDetails = (tournament: ResolvedTournament): string => {
     // **My Tournament** (5 challenges
-    let message = `**${tournament.name}** (${tournament.challenges.length} ${tournament.challenges.length !== 0 ? 'challenges' : 'challenge'}`;
+    let message = `**${tournament.name}** (${tournament.challenges.length} ${tournament.challenges.length !== 1 ? 'challenges' : 'challenge'}`;
     // :
     if (tournament.challenges.some(challenge => challenge.difficulty)) message += ':';
     // 2 🔥 1 💀
@@ -201,7 +206,7 @@ const formatTournamentDetails = (tournament: ResolvedTournament): string => {
 
 const tournamentsSlashCommandDescriptions = new Map<TournamentsStatus, (o: TournamentsOutcome) => SlashCommandDescribedOutcome>([
     [OutcomeStatus.SUCCESS_MONO, (o: TournamentsOutcome) => {
-        const oBody = (o as OutcomeWithMonoBody<ResolvedTournament[]>).body;
+        const oBody = (o as OutcomeWithMonoBody<T1>).body;
         let message = '';
         if (oBody.data[0].active) {
             message += `The current tournament:\n${formatTournamentDetails(oBody.data[0])}`;
@@ -226,7 +231,7 @@ const tournamentsSlashCommandDescriptions = new Map<TournamentsStatus, (o: Tourn
         };
     }],
     [OutcomeStatus.SUCCESS_DUO, (o: TournamentsOutcome) => {
-        const oBody = (o as OutcomeWithDuoBody<ResolvedTournament[]>).body;
+        const oBody = (o as OutcomeWithDuoBody<T1>).body;
         let resultString = 'The current tournament is *hidden*.';
         const activeTournaments = oBody.data1.filter(tournament => tournament.active);
         const inactiveTournaments = oBody.data1.filter(tournament => !tournament.active);
@@ -242,8 +247,7 @@ const tournamentsSlashCommandDescriptions = new Map<TournamentsStatus, (o: Tourn
     })],
 ]);
 
-const tournamentsSlashCommandOutcomeDescriber = async (interaction: LimitedCommandInteraction): Promise<SlashCommandDescribedOutcome> => {
-    const outcome = await tournamentsSlashCommandValidator(interaction);
+const tournamentsSlashCommandOutcomeDescriber = (outcome: TournamentsOutcome): SlashCommandDescribedOutcome => {
     if (tournamentsSlashCommandDescriptions.has(outcome.status)) return tournamentsSlashCommandDescriptions.get(outcome.status)!(outcome);
     // Fallback to trying default descriptions
     const defaultOutcome = outcome as Outcome<string>;
@@ -252,19 +256,19 @@ const tournamentsSlashCommandOutcomeDescriber = async (interaction: LimitedComma
     } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
 };
 
-const tournamentsSlashCommandReplyer = async (interaction: CommandInteraction): Promise<void> => {
-    const describedOutcome = await tournamentsSlashCommandOutcomeDescriber(limitCommandInteraction(interaction));
+const tournamentsSlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
     interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
 };
 
-const TournamentsCommand = new CustomCommand(
+const TournamentsCommand = new RendezvousSlashCommand<TournamentsOutcome, TournamentsSolverParams, T1>(
     new SlashCommandBuilder()
         .setName('tournaments')
         .setDescription('Show the tournaments happening in the server.')
         .addBooleanOption(option => option.setName('contestantview').setDescription('Judges can use True to only show visible tournaments, to see what a contestant sees.').setRequired(false)) as SlashCommandBuilder,
-    async (interaction: CommandInteraction) => {
-        await tournamentsSlashCommandReplyer(interaction);
-    }
+    tournamentsSlashCommandReplyer,
+    tournamentsSlashCommandOutcomeDescriber,
+    tournamentsSlashCommandValidator,
+    tournamentsSolver,
 );
 
 export default TournamentsCommand;

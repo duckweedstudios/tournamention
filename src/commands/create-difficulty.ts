@@ -1,149 +1,259 @@
-import { ObjectId } from 'mongodb';
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction } from 'discord.js';
-import { CustomCommand } from '../types/customCommand.js';
-import { DuplicateSubdocumentError, UserFacingError } from '../types/customError.js';
-import { DifficultyDocument, TournamentDocument } from '../types/customDocument.js';
-import { addDifficultyToTournament, getTournamentById, getTournamentByName, isSingleEmoji } from '../backend/queries/tournamentQueries.js';
-import { Difficulty, DifficultyModel } from '../backend/schemas/difficulty.js';
-import { CommandInteractionOptionResolverAlias } from '../types/discordTypeAlias.js';
+import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { createDifficultyInTournament, getDifficultyByEmoji, getTournamentByName, isSingleEmoji } from '../backend/queries/tournamentQueries.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
+import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, SlashCommandDescribedOutcome } from '../types/outcome.js';
+import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
+import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
+import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
+import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
+import { ValueOf } from '../types/typelogic.js';
+import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
 
-class DifficultyCreationError extends UserFacingError {
-    constructor(message: string, userMessage: string) {
-        super(message, userMessage);
-        this.name = 'DifficultyCreationError';
-    }
-}
+/**
+ * Alias for the first generic type of the command.
+ */
+type T1 = string;
 
-class BatchDifficultyCreationError extends UserFacingError {
-    constructor(message: string, userMessage: string) {
-        super(message, userMessage);
-        this.name = 'BatchDifficultyCreationError';
-    }
-}
+/**
+ * Alias for the second generic type of the command.
+ */
+type T2 = {
+    emoji: string,
+    pointValue: number,
+};
 
-class DifficultyFactory {
-    constructor(private readonly tournamentID: ObjectId) {
-        return;
-    }
-
-    /**
-     * A batch creation method for Difficulty subdocuments. In case of duplicates in the batch or
-     * existing Difficulties, the method will throw `BatchDifficultyCreationError` and no Difficulties
-     * will be created.
-     * @param difficulties An array of freshly-created DifficultyDocument objects to be added to the Tournament.
-     * @returns An array of TournamentDocuments. Since order isn't guaranteed and since batch
-     * creation fails or succeeds together, the return value isn't useful outside of `await`ing completion
-     * completion in calling code.
-     */
-    public async createDifficulties(difficulties: DifficultyDocument[]): Promise<(TournamentDocument | null)[]> {
-        const singular = difficulties.length === 1;
-        const tournamentDocument = await getTournamentById(this.tournamentID);
-        if (!tournamentDocument) throw new DifficultyCreationError(`Tournament with ID ${this.tournamentID} does not exist.`, `The difficult${singular ? 'y was' : 'ies were'} not added. The tournament does not exist.`);
-
-        // Check for duplicate difficulty emojis both in the batch and in the existing challenges.
-        difficulties.forEach(async (newDifficulty: Difficulty) => {
-            if ((await tournamentDocument.get('resolvingDifficulties')).includes(newDifficulty))
-                throw new BatchDifficultyCreationError(`Challenge ${newDifficulty.emoji} already exists in tournament ${tournamentDocument.name}.`,
-                    `The difficult${singular ? 'y was' : 'ies were'} not added. A difficulty with the emoji ${newDifficulty.emoji} already exists in tournament **${tournamentDocument.name}**.`);
-            if (difficulties.filter((d: Difficulty) => d.emoji === newDifficulty.emoji).length > 1)
-                throw new BatchDifficultyCreationError(`Duplicate difficulty emojis ${newDifficulty.emoji} found in batch.`,
-                    `The challenge${singular ? '' : 's'} were not added. Duplicate challenge names were found in the batch.`);
-        });
-
-        // No duplicates exist, so we are safe to add challenges in any order. 
-        // Since our backend query methods are meant to mimic (simple) API endpoints, no batch
-        // creation method exists (yet), so we must add each challenge individually.
-        const promises = new Array<Promise<TournamentDocument | null>>();
-        difficulties.forEach(async (difficulty: DifficultyDocument) => {
-            promises.push(addDifficultyToTournament(tournamentDocument, difficulty));
-        });
-        return Promise.all(promises);
-    }
+/**
+ * Status codes specific to this command.
+ */
+enum CreateDifficultySpecificStatus {
+    SUCCESS_DIFFICULTY_CREATED = 'SUCCESS_DIFFICULTY_CREATED',
 }
 
 /**
- * A class that handles the creation of Difficulty subdocuments within a Tournament. It serves as a
- * wrapper around `DifficultyFactory` to simplify the creation of a single Difficulty.
- * `DifficultyCreator`'s internals may resemble the Factory pattern at a glance, but this is merely
- * for readability. The class should not be used to create multiple Difficulties.
+ * Union of specific and generic status codes.
  */
-class DifficultyCreator {
-    private readonly tournamentName: string;
-    private readonly emoji: string;
-    private readonly pointValue: number;
-    private currentTournament: Promise<TournamentDocument | null>;
+type CreateDifficultyStatus = CreateDifficultySpecificStatus | OutcomeStatus;
 
-    constructor(private readonly guildID: string, options: CommandInteractionOptionResolverAlias) {
-        this.tournamentName = options.get('tournament', false)?.value as string ?? '';
-        this.emoji = options.get('emoji', true).value as string;
-        this.pointValue = options.get('point-value', true).value as number;
-        this.currentTournament = getCurrentTournament(this.guildID);
-    }
-
-    async createDifficulty(): Promise<void> {
-        // Use the specified tournament if provided. Otherwise attempt to use the current tournament, failing if there is none.
-        let tournament: TournamentDocument | null;
-        if (this.tournamentName) {
-            // A tournament was specified -- use it
-            tournament = await getTournamentByName(this.guildID, this.tournamentName);
-            if (!tournament) throw new DifficultyCreationError(`Tournament ${this.tournamentName} not found in guild ${this.guildID}.`, `The difficulty was not created. That tournament, **${this.tournamentName}**, was not found.`);
-        } else {
-            // No tournament was specified...
-            if (await this.currentTournament) {
-                // ... and there is a current tournament -- use it
-                tournament = await this.currentTournament;
-
-            } else {
-                // ... and there is no current tournament -- fail
-                throw new DifficultyCreationError(`Guild ${this.guildID} has no current tournament.`, 'There is no current tournament. Make sure there is one, or specify your non-active tournament.');
-            }
-        }
-
-        // Validate emoji input
-        if (!isSingleEmoji(this.emoji))
-            throw new DifficultyCreationError(`Provided emoji is invalid: ${this.emoji}`, `The difficulty was not created. The emoji you chose, ${this.emoji}, is not a single emoji.`);
-
-        // Validate point value input
-        // Input is already restricted to integers. Non-negative integers are valid (thus 0 is valid).
-        if (this.pointValue < 0)
-            throw new DifficultyCreationError(`Provided point value is invalid: ${this.pointValue}`, `The difficulty was not created. The point value you chose, ${this.pointValue}, must be 0 or greater.`);
-        
-        await new DifficultyFactory(tournament!._id).createDifficulties([await DifficultyModel.create({
-            emoji: this.emoji,
-            pointValue: this.pointValue,
-        })]);
-    }
+/**
+ * The outcome format for the specific status code(s).
+ */
+type CreateDifficultySpecificOutcome = {
+    status: CreateDifficultySpecificStatus.SUCCESS_DIFFICULTY_CREATED;
+    body: {
+        data1: T1;
+        context1: string;
+        data2: T2;
+        context2: string;
+    };
 }
 
-const CreateDifficultyCommand = new CustomCommand(
+/**
+ * Union of specific and generic outcomes.
+ */
+type CreateDifficultyOutcome = Outcome<T1, T2, CreateDifficultySpecificOutcome>;
+
+/**
+ * Parameters for the solver function, as well as the "S" generic type.
+ */
+
+interface CreateDifficultySolverParams {
+    guildId: string,
+    emoji: string,
+    pointValue: number,
+    tournamentName?: string | undefined,
+}
+
+/**
+ * Creates a Difficulty in a Tournament.
+ * @param params The parameters object for the solver function.
+ * @returns A `CreateDifficultyOutcome`, in all cases.
+ */
+const createDifficultySolver = async (params: CreateDifficultySolverParams): Promise<CreateDifficultyOutcome> => {
+    try {
+        const tournament = params.tournamentName ? await getTournamentByName(params.guildId, params.tournamentName) : await getCurrentTournament(params.guildId);
+
+        const difficulty = await createDifficultyInTournament(tournament!, params.emoji, params.pointValue);
+        if (!difficulty) return {
+            status: OutcomeStatus.FAIL_UNKNOWN,
+            body: {},
+        };
+        return {
+            status: CreateDifficultySpecificStatus.SUCCESS_DIFFICULTY_CREATED,
+            body: {
+                data1: tournament!.name,
+                context1: 'tournament',
+                data2: {
+                    emoji: difficulty.emoji,
+                    pointValue: difficulty.pointValue,
+                },
+                context2: 'difficulty',
+            }
+        };
+    } catch (err) {
+        // No expected thrown errors
+    }
+
+    return {
+        status: OutcomeStatus.FAIL_UNKNOWN,
+        body: {},
+    };
+};
+
+const createDifficultySlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<CreateDifficultySolverParams | OptionValidationErrorOutcome<T1>> => {
+    const guildId = interaction.guildId!;
+    const emoji = interaction.options.get('emoji', true);
+    const pointValue = interaction.options.get('point-value', true);
+
+    const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([
+        ['member', [
+            // Ensure that the sender is a Judge or Administrator
+            {
+                category: OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS,
+                func: async function(metadata: ValueOf<LimitedCommandInteraction>): Promise<boolean> {
+                    const judge = await getJudgeByGuildIdAndMemberId(guildId, (metadata as GuildMember).id);
+                    return (judge && judge.isActiveJudge) || (metadata as GuildMember).permissions.has(PermissionsBitField.Flags.Administrator);
+                },
+            },
+        ]],
+    ]);
+
+    const tournament = interaction.options.get('tournament', false);
+
+    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
+        [tournament, [
+            // Ensure that the tournament exists, if it was provided
+            // This occurs before UNDEFAULTABLE constraint to discriminate the case of a nonexistent
+            // specified tournament name for the sake of the user feedback message
+            {
+                category: OptionValidationErrorStatus.OPTION_DNE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = await getTournamentByName(guildId, option as string);
+                    return tournamentDocument !== null;
+                }
+            },
+        ]],
+        // Remaining checks have SOME tournament as a precondition, whether the selected or default
+        // In-order constraints ensure this is validated first
+        [emoji, [
+            // Ensure that either the specified Tournament exists or there is a current Tournament
+            // This constraint hijacks the required option emoji and does not use its value
+            {
+                category: OptionValidationErrorStatus.OPTION_UNDEFAULTABLE,
+                func: async function(_: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
+                    return tournamentDocument !== null;
+                },
+            },
+            // Ensure that the emoji is a single emoji
+            {
+                category: OptionValidationErrorStatus.OPTION_INVALID,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return isSingleEmoji(option as string);
+                },
+            },
+            // Ensure that the emoji is not already a difficulty in the specified Tournament
+            {
+                category: OptionValidationErrorStatus.OPTION_DUPLICATE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
+                    return (await getDifficultyByEmoji(tournamentDocument!, option as string)) === null;
+                },
+            },
+        ]],
+        [pointValue, [
+            // Ensure that the point value is a non-negative integer
+            {
+                category: OptionValidationErrorStatus.NUMBER_BEYOND_RANGE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return (option as number) >= 0;
+                },
+            },
+        ]],
+    ]);
+
+    try {
+        await validateConstraints(interaction, metadataConstraints, optionConstraints);
+    } catch (err) {
+        if (err instanceof OptionValidationError) return ({
+            status: OutcomeStatus.FAIL_VALIDATION,
+            body: {
+                constraint: err.constraint,
+                field: err.field,
+                value: err.value,
+                context: err.message,
+            },
+        });
+
+        throw err;
+    }
+
+    return {
+        guildId: guildId,
+        emoji: emoji.value as string,
+        pointValue: pointValue.value as number,
+        tournamentName: tournament ? tournament.value as string : undefined,
+    };
+};
+
+const createDifficultySlashCommandDescriptions = new Map<CreateDifficultyStatus, (o: CreateDifficultyOutcome) => SlashCommandDescribedOutcome>([
+    [CreateDifficultySpecificStatus.SUCCESS_DIFFICULTY_CREATED, (o: CreateDifficultyOutcome) => {
+        const oBody = (o as CreateDifficultySpecificOutcome).body;
+        return {
+            userMessage: `✅ Difficulty ${oBody.data2.emoji} created in tournament **${oBody.data1}**.`, ephemeral: true,
+        };
+    }],
+    [OutcomeStatus.FAIL_VALIDATION, (o: CreateDifficultyOutcome) => {
+        const oBody = (o as OptionValidationErrorOutcome<T1>).body;
+        if (oBody.constraint.category === OptionValidationErrorStatus.INSUFFICIENT_PERMISSIONS) return {
+            userMessage: `❌ You do not have permission to use this command.`, ephemeral: true,
+        };
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_INVALID) return {
+            userMessage: `❌ What you entered for the emoji, **${oBody.value}**, is not a single emoji.`, ephemeral: true,
+        };
+        else if (oBody.constraint.category === OptionValidationErrorStatus.NUMBER_BEYOND_RANGE) return {
+            userMessage: `❌ The point value provided, **${oBody.value}**, must be a non-negative integer.`, ephemeral: true,
+        };
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DNE) return {
+            userMessage: `❌ The ${oBody.field} **${oBody.value}** was not found.`, ephemeral: true,
+        };
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_UNDEFAULTABLE) return {
+            userMessage: `❌ There is no current tournament. You must either specify a tournament by name or activate a tournament, then try again.`, ephemeral: true,
+        };
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DUPLICATE) return {
+            userMessage: `❌ A difficulty with the emoji ${oBody.value} already exists in the tournament.`, ephemeral: true,
+        };
+        else return {
+            userMessage: `❌ This command failed due to a validation error.`, ephemeral: true,
+        };
+    }],
+]);
+
+const createDifficultySlashCommandOutcomeDescriber = (outcome: CreateDifficultyOutcome): SlashCommandDescribedOutcome => {
+    if (createDifficultySlashCommandDescriptions.has(outcome.status)) return createDifficultySlashCommandDescriptions.get(outcome.status)!(outcome);
+    // Fallback to trying default descriptions
+    const defaultOutcome = outcome as Outcome<string>;
+    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
+        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
+    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
+};
+
+const createDifficultySlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
+    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
+};
+
+const CreateDifficultyCommand = new RendezvousSlashCommand<CreateDifficultyOutcome, CreateDifficultySolverParams, T1>(
     new SlashCommandBuilder()
         .setName('create-difficulty')
         .setDescription('Create a difficulty rating for challenges within one tournament.')
         .addStringOption(option => option.setName('emoji').setDescription('An emoji identifying the difficulty.').setRequired(true))
         .addIntegerOption(option => option.setName('point-value').setDescription('The number of points earned by completing the challenge.').setRequired(true))
         .addStringOption(option => option.setName('tournament').setDescription('The tournament the difficulty is part of. Defaults to current tournament.').setRequired(false)) as SlashCommandBuilder,
-    async (interaction: CommandInteraction) => {
-        // TODO: Privileges check
-
-
-        try {
-            await new DifficultyCreator(interaction.guildId!, interaction.options).createDifficulty();
-            interaction.reply({ content: `✅ Difficulty created!`, ephemeral: true });
-        } catch (err) {
-            if (err instanceof UserFacingError) {
-                interaction.reply({ content: `❌ ${err.userMessage}`, ephemeral: true });
-                return;
-            } else if (err instanceof DuplicateSubdocumentError) { // TODO: refactor this logic to have a UserFacingError thrown that provides this message
-                interaction.reply({ content: `❌ The difficulty was not created. A difficulty with that emoji already exists in the tournament.`, ephemeral: true });
-                return;
-            }
-            console.error(`Error in create-difficulty.ts: ${err}`);
-            interaction.reply({ content: `❌ There was an error while creating the difficulty!`, ephemeral: true });
-            return;
-        }
-    }
+    createDifficultySlashCommandReplyer,
+    createDifficultySlashCommandOutcomeDescriber,
+    createDifficultySlashCommandValidator,
+    createDifficultySolver,
 );
 
 export default CreateDifficultyCommand;

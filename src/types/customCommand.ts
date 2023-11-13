@@ -8,3 +8,7 @@ export class CustomCommand {
         this.execute = execute;
     }
 }
+
+export const isCustomCommand = (object: unknown): object is CustomCommand => {
+    return (object as CustomCommand).data !== undefined && (object as CustomCommand).execute !== undefined;
+};

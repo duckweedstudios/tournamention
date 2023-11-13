@@ -53,6 +53,10 @@ export type OptionValidationErrorOutcome<T> = {
     },
 };
 
+export const isValidationErrorOutcome = <T>(x: unknown): x is OptionValidationErrorOutcome<T> => {
+    return (x as OptionValidationErrorOutcome<T>).status === OutcomeStatus.FAIL_VALIDATION;
+};
+
 export type OutcomeWithDuoListBody<T, U> = {
     status: OutcomeStatus.SUCCESS_NO_CHANGE,
     body: {
@@ -63,4 +67,12 @@ export type OutcomeWithDuoListBody<T, U> = {
     },
 };
 
-export type Outcome<T, U = void> = OutcomeWithEmptyBody | OutcomeWithMonoBody<T> | OutcomeWithDuoBody<T> | OutcomeWithDuoListBody<T, U> | OptionValidationErrorOutcome<T>;
+/**
+ * A placeholder outcome type for when no custom outcomes are needed.
+ */
+type PlaceholderOutcome = {
+    status: OutcomeStatus.FAIL,
+    body: EmptyObject
+}
+
+export type Outcome<T, U = void, V = PlaceholderOutcome> = OutcomeWithEmptyBody | OutcomeWithMonoBody<T> | OutcomeWithDuoBody<T> | OutcomeWithDuoListBody<T, U> | OptionValidationErrorOutcome<T> | V;
