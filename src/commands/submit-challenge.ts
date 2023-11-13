@@ -185,7 +185,6 @@ const submitChallengeSlashCommandValidator = async (interaction: LimitedCommandI
         throw err;
     }
 
-    // return await submitChallenge(guildId, challengeName, interaction.member!.user!.id, proofLink, (tournament ? tournament.value as string : undefined));
     return {
         guildId: guildId,
         challengeName: challengeName,
