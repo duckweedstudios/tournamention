@@ -1,9 +1,26 @@
+import { Embed, APIActionRowComponent, APIButtonComponent } from 'discord.js';
 import { Constraint } from '../commands/slashcommands/architecture/validation.js';
+
+export type OutcomeTypeConstraint = {
+    status: unknown,
+};
 
 export type SlashCommandDescribedOutcome = {
     userMessage: string,
     ephemeral: boolean,
 };
+
+export type SlashCommandEmbedDescribedOutcome = {
+    embeds: Embed[],
+    components: APIActionRowComponent<APIButtonComponent>[],
+    ephemeral: true,
+};
+
+export const isEmbedDescribedOutcome = (x: unknown): x is SlashCommandEmbedDescribedOutcome => {
+    return (x as SlashCommandEmbedDescribedOutcome).embeds !== undefined;
+};
+
+export type DescriptionMap<S, O> = Map<S, (o: O) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>;
 
 export enum OutcomeStatus {
     SUCCESS = 'SUCCESS', // generic success

@@ -1,8 +1,7 @@
-import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField, SlashCommandBuilder } from 'discord.js';
-import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
+import { CommandInteractionOption, GuildMember, PermissionsBitField, SlashCommandBuilder } from 'discord.js';
 import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
 import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome } from '../types/outcome.js';
-import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
 import { getDifficultyByEmoji, getTournamentByName } from '../backend/queries/tournamentQueries.js';
@@ -284,20 +283,7 @@ const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: Challen
     })],
 ]);
 
-const challengesSlashCommandOutcomeDescriber = (outcome: ChallengesOutcome): SlashCommandDescribedOutcome => {
-    if (challengesSlashCommandDescriptions.has(outcome.status)) return challengesSlashCommandDescriptions.get(outcome.status)!(outcome);
-    // Fallback to trying default descriptions
-    const defaultOutcome = outcome as Outcome<string>;
-    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
-        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
-    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
-};
-
-const challengesSlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
-    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
-};
-
-const ChallengesCommand = new RendezvousSlashCommand<ChallengesOutcome, ChallengesSolverParams, T1>(
+const ChallengesCommand = new SimpleRendezvousSlashCommand<ChallengesOutcome, ChallengesSolverParams, T1, ChallengesStatus>(
     new SlashCommandBuilder()
         .setName('challenges')
         .setDescription('Show the challenges posted for a tournament.')
@@ -305,8 +291,7 @@ const ChallengesCommand = new RendezvousSlashCommand<ChallengesOutcome, Challeng
         .addStringOption(option => option.setName('game').setDescription('The name of the game to filter challenges by.').setRequired(false))
         .addStringOption(option => option.setName('difficulty').setDescription('The difficulty emoji to filter challenges by.').setRequired(false))
         .addBooleanOption(option => option.setName('contestantview').setDescription('Judges can use True to only show visible challenges, to see what a contestant sees.').setRequired(false)) as SlashCommandBuilder,
-    challengesSlashCommandReplyer,
-    challengesSlashCommandOutcomeDescriber,
+    challengesSlashCommandDescriptions,
     challengesSlashCommandValidator,
     challengesSolver,
 );

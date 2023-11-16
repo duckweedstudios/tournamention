@@ -1,10 +1,9 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { createDifficultyInTournament, getDifficultyByEmoji, getTournamentByName, isSingleEmoji } from '../backend/queries/tournamentQueries.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, SlashCommandDescribedOutcome } from '../types/outcome.js';
-import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
 import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
 import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
@@ -230,28 +229,14 @@ const createDifficultySlashCommandDescriptions = new Map<CreateDifficultyStatus,
     }],
 ]);
 
-const createDifficultySlashCommandOutcomeDescriber = (outcome: CreateDifficultyOutcome): SlashCommandDescribedOutcome => {
-    if (createDifficultySlashCommandDescriptions.has(outcome.status)) return createDifficultySlashCommandDescriptions.get(outcome.status)!(outcome);
-    // Fallback to trying default descriptions
-    const defaultOutcome = outcome as Outcome<string>;
-    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
-        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
-    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
-};
-
-const createDifficultySlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
-    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
-};
-
-const CreateDifficultyCommand = new RendezvousSlashCommand<CreateDifficultyOutcome, CreateDifficultySolverParams, T1>(
+const CreateDifficultyCommand = new SimpleRendezvousSlashCommand<CreateDifficultyOutcome, CreateDifficultySolverParams, T1, CreateDifficultyStatus>(
     new SlashCommandBuilder()
         .setName('create-difficulty')
         .setDescription('Create a difficulty rating for challenges within one tournament.')
         .addStringOption(option => option.setName('emoji').setDescription('An emoji identifying the difficulty.').setRequired(true))
         .addIntegerOption(option => option.setName('point-value').setDescription('The number of points earned by completing the challenge.').setRequired(true))
         .addStringOption(option => option.setName('tournament').setDescription('The tournament the difficulty is part of. Defaults to current tournament.').setRequired(false)) as SlashCommandBuilder,
-    createDifficultySlashCommandReplyer,
-    createDifficultySlashCommandOutcomeDescriber,
+    createDifficultySlashCommandDescriptions,
     createDifficultySlashCommandValidator,
     createDifficultySolver,
 );

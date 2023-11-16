@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { OutcomeStatus, Outcome, SlashCommandDescribedOutcome, OutcomeWithDuoListBody, OutcomeWithDuoBody, OutcomeWithMonoBody, OptionValidationErrorOutcome } from '../types/outcome.js';
 import { getChallengeOfTournamentByName } from '../backend/queries/challengeQueries.js';
 import { getContestantByGuildIdAndMemberId, getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
@@ -11,8 +11,7 @@ import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
 import { getTournamentByName } from '../backend/queries/tournamentQueries.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
-import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -309,20 +308,7 @@ const judgeSubmissionSlashCommandDescriptions = new Map<JudgeSubmissionStatus, (
     }],
 ]);
 
-const judgeSubmissionSlashCommandOutcomeDescriber = (outcome: JudgeSubmissionOutcome): SlashCommandDescribedOutcome => {
-    if (judgeSubmissionSlashCommandDescriptions.has(outcome.status)) return judgeSubmissionSlashCommandDescriptions.get(outcome.status)!(outcome);
-    // Fallback to trying default descriptions
-    const defaultOutcome = outcome as Outcome<string>;
-    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
-        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
-    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
-};
-
-const judgeSubmissionSlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
-    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
-};
-
-const JudgeSubmissionCommand = new RendezvousSlashCommand<JudgeSubmissionOutcome, JudgeSubmissionSolverParams, T1>(
+const JudgeSubmissionCommand = new SimpleRendezvousSlashCommand<JudgeSubmissionOutcome, JudgeSubmissionSolverParams, T1, JudgeSubmissionStatus>(
     new SlashCommandBuilder()
         .setName('judge-submission')
         .setDescription('Approve or reject the newest submission for a challenge from a contestant.')
@@ -331,8 +317,7 @@ const JudgeSubmissionCommand = new RendezvousSlashCommand<JudgeSubmissionOutcome
         .addBooleanOption(option => option.setName('approve').setDescription('Approve the submission with True, reject it with False.').setRequired(true))
         .addStringOption(option => option.setName('notes').setDescription('Leave a review note or other comment on the submission.').setRequired(false))
         .addStringOption(option => option.setName('tournament').setDescription('The tournament the challenge is part of. Defaults to current tournament.').setRequired(false)) as SlashCommandBuilder,
-    judgeSubmissionSlashCommandReplyer,
-    judgeSubmissionSlashCommandOutcomeDescriber,
+    judgeSubmissionSlashCommandDescriptions,
     judgeSubmissionSlashCommandValidator,
     judgeSubmissionSolver,
 );

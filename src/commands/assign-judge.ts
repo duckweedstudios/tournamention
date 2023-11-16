@@ -1,13 +1,12 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField, User } from 'discord.js';
+import { CommandInteractionOption, GuildMember, PermissionsBitField, User } from 'discord.js';
 import { NonexistentJointGuildAndMemberError, OptionValidationError, OptionValidationErrorStatus, UnknownError } from '../types/customError.js';
 import { setJudgeActive, setOrCreateActiveJudge } from '../backend/queries/profileQueries.js';
 import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithDuoListBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
-import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
-import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -194,29 +193,14 @@ const assignJudgeSlashCommandDescriptions = new Map<AssignJudgeStatus, (o: Assig
     })],
 ]);
 
-const assignJudgeSlashCommandOutcomeDescriber = (outcome: AssignJudgeOutcome): SlashCommandDescribedOutcome => {
-    if (assignJudgeSlashCommandDescriptions.has(outcome.status)) return assignJudgeSlashCommandDescriptions.get(outcome.status)!(outcome);
-    // Fallback to trying default descriptions
-    const defaultOutcome = outcome as Outcome<string>;
-    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
-        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
-    } else {
-        return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
-    }
-};
 
-const assignJudgeCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
-    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
-};
-
-const AssignJudgeSlashCommand = new RendezvousSlashCommand<AssignJudgeOutcome, AssignJudgeSolverParams, T1>(
+const AssignJudgeSlashCommand = new SimpleRendezvousSlashCommand<AssignJudgeOutcome, AssignJudgeSolverParams, T1, AssignJudgeStatus>(
     new SlashCommandBuilder()
         .setName('assign-judge')
         .setDescription('Assign someone as a judge for challenge submissions in all tournaments, or revoke judge permissions.')
         .addUserOption(option => option.setName('who').setDescription('The new judge to assign, or whose permissions to modify.').setRequired(true))
         .addBooleanOption(option => option.setName('revoke').setDescription('To revoke an existing judge, use True. To re-assign a judge, use False or leave this blank.').setRequired(false)) as SlashCommandBuilder,
-    assignJudgeCommandReplyer,
-    assignJudgeSlashCommandOutcomeDescriber,
+    assignJudgeSlashCommandDescriptions,
     assignJudgeSlashCommandValidator,
     assignJudgeSolver,
 );

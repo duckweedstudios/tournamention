@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOption } from 'discord.js';
+import { CommandInteractionOption } from 'discord.js';
 import { getTournamentByName } from '../backend/queries/tournamentQueries.js';
 import { SubmissionDocument } from '../types/customDocument.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
@@ -12,8 +12,7 @@ import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBod
 import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
-import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
-import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -248,28 +247,14 @@ const submitChallengeSlashCommandDescriptions = new Map<SubmitChallengeStatus, (
     }],
 ]);
 
-const submitChallengeSlashCommandOutcomeDescriber = (outcome: SubmitChallengeOutcome): SlashCommandDescribedOutcome => {
-    if (submitChallengeSlashCommandDescriptions.has(outcome.status)) return submitChallengeSlashCommandDescriptions.get(outcome.status)!(outcome);
-    // Fallback to trying default descriptions
-    const defaultOutcome = outcome as Outcome<string>;
-    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
-        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
-    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
-};
-
-const judgeSubmissionSlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
-    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
-};
-
-const SubmitChallengeCommand = new RendezvousSlashCommand<SubmitChallengeOutcome, SubmitChallengeSolverParams, T1>(
+const SubmitChallengeCommand = new SimpleRendezvousSlashCommand<SubmitChallengeOutcome, SubmitChallengeSolverParams, T1, SubmitChallengeStatus>(
     new SlashCommandBuilder()
         .setName('submit-challenge')
         .setDescription('Send your submission for a challenge you completed, along with proof.')
         .addStringOption(option => option.setName('name').setDescription('The name of the challenge.').setRequired(true))
         .addStringOption(option => option.setName('proof-link').setDescription('Your proof of completing the challenge. Linkless? Send it on this server then Copy Message Link!').setRequired(true))
         .addStringOption(option => option.setName('tournament').setDescription('The tournament the challenge is part of. Defaults to current tournament.').setRequired(false)) as SlashCommandBuilder,
-    judgeSubmissionSlashCommandReplyer,
-    submitChallengeSlashCommandOutcomeDescriber,
+    submitChallengeSlashCommandDescriptions,
     submitChallengeSlashCommandValidator,
     submitChallengeSolver,
 );
