@@ -7,6 +7,7 @@ import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v9';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord.js';
 import { RendezvousCommand } from '../commands/slashcommands/architecture/rendezvousCommand.js';
+import { OutcomeTypeConstraint } from '../types/outcome.js';
 
 const commands = new Array<RESTPostAPIApplicationCommandsJSONBody>();
 const commandsPath = pathToFileURL(path.join(process.cwd(), './src/commands'));
@@ -14,7 +15,7 @@ const commandFiles = fs.readdirSync(commandsPath, { encoding: 'utf8', recursive:
 
 for (const file of commandFiles) {
     const filePath = pathToFileURL(path.join(fileURLToPath(commandsPath), file)).toString();
-    const command = (await import(filePath)).default as RendezvousCommand<unknown, unknown, unknown>;
+    const command = (await import(filePath)).default as RendezvousCommand<OutcomeTypeConstraint, unknown, unknown>;
     commands.push(command.interfacer!.toJSON());
 }
 
