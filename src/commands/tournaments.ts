@@ -1,16 +1,15 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { getTournamentsByGuild } from '../backend/queries/tournamentQueries.js';
 import { ResolvedTournament, resolveTournaments } from '../types/customDocument.js';
 import { OptionValidationError } from '../types/customError.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
 import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
-import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
 import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
-import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -247,26 +246,12 @@ const tournamentsSlashCommandDescriptions = new Map<TournamentsStatus, (o: Tourn
     })],
 ]);
 
-const tournamentsSlashCommandOutcomeDescriber = (outcome: TournamentsOutcome): SlashCommandDescribedOutcome => {
-    if (tournamentsSlashCommandDescriptions.has(outcome.status)) return tournamentsSlashCommandDescriptions.get(outcome.status)!(outcome);
-    // Fallback to trying default descriptions
-    const defaultOutcome = outcome as Outcome<string>;
-    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
-        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
-    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
-};
-
-const tournamentsSlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
-    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
-};
-
-const TournamentsCommand = new RendezvousSlashCommand<TournamentsOutcome, TournamentsSolverParams, T1>(
+const TournamentsCommand = new SimpleRendezvousSlashCommand<TournamentsOutcome, TournamentsSolverParams, T1>(
     new SlashCommandBuilder()
         .setName('tournaments')
         .setDescription('Show the tournaments happening in the server.')
         .addBooleanOption(option => option.setName('contestantview').setDescription('Judges can use True to only show visible tournaments, to see what a contestant sees.').setRequired(false)) as SlashCommandBuilder,
-    tournamentsSlashCommandReplyer,
-    tournamentsSlashCommandOutcomeDescriber,
+    tournamentsSlashCommandDescriptions,
     tournamentsSlashCommandValidator,
     tournamentsSolver,
 );

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { addChallengeToTournament, getDifficultyByEmoji, getTournamentByName } from '../backend/queries/tournamentQueries.js';
 import { ChallengeDocument } from '../types/customDocument.js';
 import { ChallengeModel } from '../backend/schemas/challenge.js';
@@ -7,11 +7,10 @@ import { OptionValidationError, OptionValidationErrorStatus } from '../types/cus
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
 import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
-import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
 import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
-import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -224,20 +223,7 @@ const createChallengeSlashCommandDescriptions = new Map<CreateChallengeStatus, (
     }],
 ]);
 
-const createChallengeSlashCommandOutcomeDescriber = (outcome: CreateChallengeOutcome): SlashCommandDescribedOutcome => {
-    if (createChallengeSlashCommandDescriptions.has(outcome.status)) return createChallengeSlashCommandDescriptions.get(outcome.status)!(outcome);
-    // Fallback to trying default descriptions
-    const defaultOutcome = outcome as Outcome<string>;
-    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
-        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
-    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
-};
-
-const createChallengeSlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
-    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
-};
-
-const CreateChallengeCommand = new RendezvousSlashCommand<CreateChallengeOutcome, CreateChallengeSolverParams, T1>(
+const CreateChallengeCommand = new SimpleRendezvousSlashCommand<CreateChallengeOutcome, CreateChallengeSolverParams, T1>(
     new SlashCommandBuilder()
         .setName('create-challenge')
         .setDescription('Create a challenge.')
@@ -247,8 +233,7 @@ const CreateChallengeCommand = new RendezvousSlashCommand<CreateChallengeOutcome
         .addStringOption(option => option.setName('tournament').setDescription('The tournament the challenge is part of. Defaults to current tournament.').setRequired(false))
         .addStringOption(option => option.setName('difficulty').setDescription('The emoji representing the challenge level. Defaults to default difficulty.').setRequired(false))
         .addBooleanOption(option => option.setName('visible').setDescription('Whether the challenge is visible to contestants. Defaults true.').setRequired(false)) as SlashCommandBuilder,
-    createChallengeSlashCommandReplyer,
-    createChallengeSlashCommandOutcomeDescriber,
+    createChallengeSlashCommandDescriptions,
     createChallengeSlashCommandValidator,
     createChallengeSolver,
 );

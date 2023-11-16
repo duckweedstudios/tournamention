@@ -1,12 +1,11 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { getDifficultyByEmoji, getTournamentByName } from '../backend/queries/tournamentQueries.js';
 import { DifficultyDocument } from '../types/customDocument.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
 import { getChallengeOfTournamentByName, updateChallengeById } from '../backend/queries/challengeQueries.js';
-import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
-import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
 import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
 import { ValueOf } from '../types/typelogic.js';
@@ -268,20 +267,7 @@ const editChallengeSlashCommandDescriptions = new Map<EditChallengeStatus, (o: E
     }],
 ]);
 
-const editChallengeSlashCommandOutcomeDescriber = (outcome: EditChallengeOutcome): SlashCommandDescribedOutcome => {
-    if (editChallengeSlashCommandDescriptions.has(outcome.status)) return editChallengeSlashCommandDescriptions.get(outcome.status)!(outcome);
-    // Fallback to trying default descriptions
-    const defaultOutcome = outcome as Outcome<string>;
-    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
-        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
-    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
-};
-
-const editChallengeSlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
-    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
-};
-
-const EditChallengeCommand = new RendezvousSlashCommand<EditChallengeOutcome, EditChallengeSolverParams, T1>(
+const EditChallengeCommand = new SimpleRendezvousSlashCommand<EditChallengeOutcome, EditChallengeSolverParams, T1, EditChallengeStatus>(
     new SlashCommandBuilder()
         .setName('edit-challenge')
         .setDescription('Edit the details of a Challenge.')
@@ -292,8 +278,7 @@ const EditChallengeCommand = new RendezvousSlashCommand<EditChallengeOutcome, Ed
         .addStringOption(option => option.setName('difficulty').setDescription(`Change the challenge's difficulty, using the emoji of a difficulty that exists in the tournament.`).setRequired(false))
         .addStringOption(option => option.setName('game').setDescription('Change the game this challenge is for, or something else like "IRL".').setRequired(false))
         .addBooleanOption(option => option.setName('visible').setDescription('Change whether the tournament can be seen by non-judges.').setRequired(false)) as SlashCommandBuilder,
-    editChallengeSlashCommandReplyer,
-    editChallengeSlashCommandOutcomeDescriber,
+    editChallengeSlashCommandDescriptions,
     editChallengeSlashCommandValidator,
     editChallengeSolver,
 );
