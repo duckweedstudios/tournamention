@@ -246,7 +246,7 @@ const tournamentsSlashCommandDescriptions = new Map<TournamentsStatus, (o: Tourn
     })],
 ]);
 
-const TournamentsCommand = new SimpleRendezvousSlashCommand<TournamentsOutcome, TournamentsSolverParams, T1>(
+const TournamentsCommand = new SimpleRendezvousSlashCommand<TournamentsOutcome, TournamentsSolverParams, T1, TournamentsStatus>(
     new SlashCommandBuilder()
         .setName('tournaments')
         .setDescription('Show the tournaments happening in the server.')

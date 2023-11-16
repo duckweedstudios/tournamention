@@ -223,7 +223,7 @@ const createChallengeSlashCommandDescriptions = new Map<CreateChallengeStatus, (
     }],
 ]);
 
-const CreateChallengeCommand = new SimpleRendezvousSlashCommand<CreateChallengeOutcome, CreateChallengeSolverParams, T1>(
+const CreateChallengeCommand = new SimpleRendezvousSlashCommand<CreateChallengeOutcome, CreateChallengeSolverParams, T1, CreateChallengeStatus>(
     new SlashCommandBuilder()
         .setName('create-challenge')
         .setDescription('Create a challenge.')
