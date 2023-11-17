@@ -1,11 +1,11 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { CommandInteractionOption, EmbedBuilder, GuildMember, PermissionsBitField } from 'discord.js';
 import { getTournamentsByGuild } from '../backend/queries/tournamentQueries.js';
 import { ResolvedTournament, resolveTournaments } from '../types/customDocument.js';
 import { OptionValidationError } from '../types/customError.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
 import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../types/outcome.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
 import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
@@ -203,7 +203,7 @@ export const formatTournamentDetails = (tournament: ResolvedTournament): string 
     return message;
 };
 
-const tournamentsSlashCommandDescriptions = new Map<TournamentsStatus, (o: TournamentsOutcome) => SlashCommandDescribedOutcome>([
+const tournamentsSlashCommandDescriptions = new Map<TournamentsStatus, (o: TournamentsOutcome) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>([
     [OutcomeStatus.SUCCESS_MONO, (o: TournamentsOutcome) => {
         const oBody = (o as OutcomeWithMonoBody<T1>).body;
         let message = '';
@@ -226,8 +226,13 @@ const tournamentsSlashCommandDescriptions = new Map<TournamentsStatus, (o: Tourn
             });
         }
         return {
-            userMessage: message, ephemeral: true,
-        };
+            embeds: [new EmbedBuilder()
+                .setTitle('Tournaments')
+                .setDescription(message)
+                .toJSON()
+            ],
+            ephemeral: true,
+        } as SlashCommandEmbedDescribedOutcome;
     }],
     [OutcomeStatus.SUCCESS_DUO, (o: TournamentsOutcome) => {
         const oBody = (o as OutcomeWithDuoBody<T1>).body;
