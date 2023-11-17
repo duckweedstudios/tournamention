@@ -1,6 +1,6 @@
-import { CommandInteractionOption, GuildMember, PermissionsBitField, SlashCommandBuilder } from 'discord.js';
+import { CommandInteractionOption, EmbedBuilder, GuildMember, PermissionsBitField, SlashCommandBuilder } from 'discord.js';
 import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome } from '../types/outcome.js';
+import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../types/outcome.js';
 import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
@@ -10,7 +10,7 @@ import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js
 import { getChallengesOfTournament, getChallengesOfTournamentByDifficulty, getChallengesOfTournamentByGame } from '../backend/queries/challengeQueries.js';
 import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
 import { ChallengeDocument, ResolvedChallenge, ResolvedTournament } from '../types/customDocument.js';
-import { formatTournamentDetails } from './tournaments.js';
+import { TournamentionClient } from '../types/client.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -43,6 +43,10 @@ type ChallengesSuccessDetailsOutcome = {
     body: {
         gamesAndChallenges: Map<string, ResolvedChallenge[]>;
         tournament: ResolvedTournament;
+        serverDetails: {
+            name: string;
+            icon: string;
+        }
     };
 };
 type ChallengesFailNoVisibleChallengesOutcome = {
@@ -72,6 +76,7 @@ interface ChallengesSolverParams {
 
 const challengesSolver = async (params: ChallengesSolverParams): Promise<ChallengesOutcome> => {
     try {
+        const guild = (await TournamentionClient.getInstance()).guilds.fetch(params.guildId);
         const tournamentDocument = params.tournament ? await getTournamentByName(params.guildId, params.tournament) : await getCurrentTournament(params.guildId);
         const challenges = params.game ? await getChallengesOfTournamentByGame(tournamentDocument!, params.game!) : await getChallengesOfTournament(tournamentDocument!);
         const difficultyDocument = params.difficulty ? await getDifficultyByEmoji(tournamentDocument!, params.difficulty) : null;
@@ -110,11 +115,17 @@ const challengesSolver = async (params: ChallengesSolverParams): Promise<Challen
             gamesAndChallenges.get(challenge.game)!.push(await new ResolvedChallenge(challenge).make());
         }
 
+        const serverDetails = {
+            name: (await guild).name,
+            icon: (await guild).iconURL() ?? 'https://static.wikia.nocookie.net/minecraft_gamepedia/images/0/02/Pointer_%28texture%29_JE1_BE1.png',
+        };
+
         return {
             status: ChallengesSpecificStatus.SUCCESS_DETAILS,
             body: {
                 gamesAndChallenges,
                 tournament: await new ResolvedTournament(tournamentDocument!).make(),
+                serverDetails,
             },
         };
     } catch (err) {
@@ -234,13 +245,9 @@ const challengesSlashCommandValidator = async (interaction: LimitedCommandIntera
 /**
  * Converts a map of games and `ResolvedChallenges`, along with optional `ResolvedTournament`, to a string.
  * @param gamesAndChallenges A Map of game name to `ResolvedChallenge` array of its challenges to be displayed in the provided order.
- * @param tournament If provided, will prepend some tournament details.
  */
-export const formatChallengesDetails = (gamesAndChallenges: Map<string, ResolvedChallenge[]>, tournament?: ResolvedTournament): string => {
+export const formatChallengesDetails = (gamesAndChallenges: Map<string, ResolvedChallenge[]>): string => {
     let result = '';
-    if (tournament) {
-        result += `${formatTournamentDetails(tournament)}\n`;
-    } else result += '__Challenges:__\n';
 
     for (const [game, challenges] of gamesAndChallenges) {
         result += `\n*${game}*\n`;
@@ -252,10 +259,19 @@ export const formatChallengesDetails = (gamesAndChallenges: Map<string, Resolved
     return result;
 };
 
-const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: ChallengesOutcome) => SlashCommandDescribedOutcome>([
-    [ChallengesSpecificStatus.SUCCESS_DETAILS, (o: ChallengesOutcome) => ({
-        userMessage: formatChallengesDetails((o as ChallengesSuccessDetailsOutcome).body.gamesAndChallenges, (o as ChallengesSuccessDetailsOutcome).body.tournament), ephemeral: true,
-    })],
+const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: ChallengesOutcome) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>([
+    [ChallengesSpecificStatus.SUCCESS_DETAILS, (o: ChallengesOutcome) => {
+        const oBody = (o as ChallengesSuccessDetailsOutcome).body;
+        return {
+            embeds: [new EmbedBuilder()
+                .setTitle(`Challenges in ${oBody.tournament.name}`)
+                .setDescription(formatChallengesDetails(oBody.gamesAndChallenges))
+                .setThumbnail(oBody.serverDetails.icon)
+                .toJSON()
+            ],
+            ephemeral: true,
+        } as SlashCommandEmbedDescribedOutcome;
+    }],
     [OutcomeStatus.FAIL_VALIDATION, (o: ChallengesOutcome) => {
         const oBody = (o as OptionValidationErrorOutcome<T1>).body;
         if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DNE) {
