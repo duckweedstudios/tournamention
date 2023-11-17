@@ -189,7 +189,9 @@ const tournamentsSlashCommandDescriptions = new Map<TournamentsStatus, (o: Tourn
     [TournamentsSpecificStatus.SUCCESS_DETAILS, (o: TournamentsOutcome) => {
         const oBody = (o as TournamentsSuccessDetailsOutcome).body;
         let message = '';
-        if (oBody.currentIsHidden) {
+        if (!oBody.current) {
+            message += `There is no current tournament.`;
+        } else if (oBody.currentIsHidden) {
             message += `The current tournament is *hidden*.`;
         } else {
             message += `The current tournament:\n${formatTournamentDetails(oBody.current!)}`;
