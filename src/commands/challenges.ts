@@ -252,7 +252,7 @@ export const formatChallengesDetails = (gamesAndChallenges: Map<string, Resolved
     for (const [game, challenges] of gamesAndChallenges) {
         result += `\n*${game}*\n`;
         for (const challenge of challenges) {
-            result += `${challenge.difficulty ? challenge.difficulty.emoji + ' ' : ''}**${challenge.name}** ${challenge.description}\n`;
+            result += `${challenge.difficulty ? challenge.difficulty.emoji + ' ' : ''}**${challenge.name}** ${challenge.description}${challenge.visibility ? '' : ' (💭 hidden)'}\n`;
         }
     }
 

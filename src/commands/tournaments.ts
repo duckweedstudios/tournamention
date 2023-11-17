@@ -179,6 +179,7 @@ export const formatTournamentDetails = (tournament: ResolvedTournament): string 
     }
     // )
     message += ')';
+    if (!tournament.visibility) message += ' (💭 hidden)';
     // {status description} ({duration})
     message += `\n\t*${tournament.statusDescription || '(no description)'}* (${tournament.duration || 'no duration'})`;
 
