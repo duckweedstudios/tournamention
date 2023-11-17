@@ -1,4 +1,4 @@
-import { Embed, APIActionRowComponent, APIButtonComponent } from 'discord.js';
+import { APIActionRowComponent, APIButtonComponent, APIEmbed } from 'discord.js';
 import { Constraint } from '../commands/slashcommands/architecture/validation.js';
 
 export type OutcomeTypeConstraint = {
@@ -11,9 +11,9 @@ export type SlashCommandDescribedOutcome = {
 };
 
 export type SlashCommandEmbedDescribedOutcome = {
-    embeds: Embed[],
-    components: APIActionRowComponent<APIButtonComponent>[],
-    ephemeral: true,
+    embeds: APIEmbed[],
+    components?: APIActionRowComponent<APIButtonComponent>[] | undefined,
+    ephemeral: boolean,
 };
 
 export const isEmbedDescribedOutcome = (x: unknown): x is SlashCommandEmbedDescribedOutcome => {

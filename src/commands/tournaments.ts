@@ -1,20 +1,21 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { CommandInteractionOption, EmbedBuilder, GuildMember, PermissionsBitField } from 'discord.js';
 import { getTournamentsByGuild } from '../backend/queries/tournamentQueries.js';
-import { ResolvedTournament, resolveTournaments } from '../types/customDocument.js';
+import { ResolvedTournament, TournamentDocument, resolveTournaments } from '../types/customDocument.js';
 import { OptionValidationError } from '../types/customError.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
 import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../types/outcome.js';
 import { ValueOf } from '../types/typelogic.js';
 import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
 import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
 import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { TournamentionClient } from '../types/client.js';
 
 /**
  * Alias for the first generic type of the command.
  */
-type T1 = ResolvedTournament[];
+type T1 = ResolvedTournament;
 
 /**
  * Alias for the second generic type of the command.
@@ -24,19 +25,36 @@ type T2 = void;
 /**
  * Status codes specific to this command.
  */
-enum _TournamentsSpecificStatus {
-
+enum TournamentsSpecificStatus {
+    SUCCESS_DETAILS = 'SUCCESS_DETAILS',
 }
 
 /**
  * Union of specific and generic status codes.
  */
-type TournamentsStatus = OutcomeStatus;
+type TournamentsStatus = TournamentsSpecificStatus | OutcomeStatus;
+
+/**
+ * The outcome format for the specific status code(s).
+ */
+type TournamentsSuccessDetailsOutcome = {
+    status: TournamentsSpecificStatus.SUCCESS_DETAILS,
+    body: {
+        current: T1 | null,
+        currentIsHidden: boolean,
+        active: T1[],
+        inactive: T1[],
+        serverDetails: {
+            name: string,
+            icon: string,
+        },
+    }
+};
 
 /**
  * Union of specific and generic outcomes.
  */
-type TournamentsOutcome = Outcome<T1, T2>;
+type TournamentsOutcome = Outcome<T1, T2, TournamentsSuccessDetailsOutcome>;
 
 /**
  * Parameters for the solver function, as well as the "S" generic type.
@@ -50,83 +68,47 @@ interface TournamentsSolverParams {
  * Retrieves all the tournaments for a given guild.
  * @param guildId The Discord Guild ID.
  * @param judgeView True iff the output will be shown to a Judge/Admin.
- * @returns A list of tournaments. The first tournament will be the current tournament, if one exists.
- * Otherwise, the tournaments are in order of creation (recent-first). If the first tournament in the list isn't
- * active, then there is no current tournament -- thus no active tournaments either.
+ * @returns A `TournamentsOutcome`, in all cases.
  */
 const tournamentsSolver = async (params: TournamentsSolverParams): Promise<TournamentsOutcome> => {
     try {
+        const guild = (await TournamentionClient.getInstance()).guilds.fetch(params.guildId);
         const allTournaments = await getTournamentsByGuild(params.guildId);
         if (!allTournaments) return {
             status: OutcomeStatus.FAIL,
             body: {},
         };
-        if (params.judgeView) {
-            // Place the current tournament first in the list
-            const currentTournament = await getCurrentTournament(params.guildId);
-            if (!currentTournament) {
-                // No current tournament, but there are tournaments
-                allTournaments.reverse();
-                return {
-                    status: OutcomeStatus.SUCCESS_MONO,
-                    body: {
-                        data: await resolveTournaments(allTournaments),
-                        context: 'tournaments',
-                    },
-                };
-            }
-            const orderedTournaments = allTournaments.filter(tournament => !tournament._id.equals(currentTournament._id));
-            orderedTournaments.push(currentTournament);
-            orderedTournaments.reverse();
-            return {
-                status: OutcomeStatus.SUCCESS_MONO,
-                body: {
-                    data: await resolveTournaments(orderedTournaments),
-                    context: 'tournaments',
-                },
-            };
-        } else {
-            if (allTournaments.filter(tournament => tournament.visibility).length === 0) return ({
-                status: OutcomeStatus.FAIL,
-                body: {},
-            });
-            // Place the current tournament first in the list
-            const currentTournament = await getCurrentTournament(params.guildId);
-            if (!currentTournament) {
-                // No current tournament, but there are tournaments
-                allTournaments.reverse();
-                return {
-                    status: OutcomeStatus.SUCCESS_MONO,
-                    body: {
-                        data: await resolveTournaments(allTournaments.filter(tournament => tournament.visibility)),
-                        context: 'tournaments',
-                    },
-                };
-            }
-            // If there is a current tournament, but it's hidden, display a distinct message
-            if (!currentTournament.visibility) {
-                allTournaments.reverse();
-                return {
-                    status: OutcomeStatus.SUCCESS_DUO,
-                    body: {
-                        data1: await resolveTournaments(allTournaments.filter(tournament => tournament.visibility).filter(tournament => tournament._id !== currentTournament._id)),
-                        context1: 'tournaments',
-                        data2: await resolveTournaments([currentTournament]),
-                        context2: 'hidden current tournament',
-                    },
-                };
-            }
-            const orderedTournaments = allTournaments.filter(tournament => tournament.visibility).filter(tournament => tournament._id !== currentTournament._id);
-            orderedTournaments.push(currentTournament);
-            orderedTournaments.reverse();
-            return {
-                status: OutcomeStatus.SUCCESS_MONO,
-                body: {
-                    data: await resolveTournaments(orderedTournaments),
-                    context: 'tournaments',
-                },
-            };
+
+        const currentTournament = await getCurrentTournament(params.guildId);
+        const current = currentTournament ? (await resolveTournaments([currentTournament]))[0] : null;
+        const currentIsHidden = currentTournament && !params.judgeView && !currentTournament.visibility;
+        const activeTournaments = new Array<TournamentDocument>();
+        const inactiveTournaments = new Array<TournamentDocument>();
+        for (const tournament of allTournaments) {
+            if (!params.judgeView && !tournament.visibility) continue;
+            if (tournament.active) {
+                if (current && tournament._id.equals(current._id)) continue;
+                activeTournaments.push(tournament);
+            } else inactiveTournaments.push(tournament);
         }
+        const active = resolveTournaments(activeTournaments);
+        const inactive = resolveTournaments(inactiveTournaments);
+
+        const serverDetails = {
+            name: (await guild).name,
+            icon: (await guild).iconURL() ?? 'https://static.wikia.nocookie.net/minecraft_gamepedia/images/0/02/Pointer_%28texture%29_JE1_BE1.png',
+        };
+
+        return {
+            status: TournamentsSpecificStatus.SUCCESS_DETAILS,
+            body: {
+                current,
+                currentIsHidden,
+                active: await active,
+                inactive: await inactive,
+                serverDetails,
+            },
+        } as TournamentsSuccessDetailsOutcome;
     } catch (err) {
         // No expected thrown errors
     }
@@ -197,52 +179,48 @@ export const formatTournamentDetails = (tournament: ResolvedTournament): string 
     }
     // )
     message += ')';
+    if (!tournament.visibility) message += ' (💭 hidden)';
     // {status description} ({duration})
     message += `\n\t*${tournament.statusDescription || '(no description)'}* (${tournament.duration || 'no duration'})`;
 
     return message;
 };
 
-const tournamentsSlashCommandDescriptions = new Map<TournamentsStatus, (o: TournamentsOutcome) => SlashCommandDescribedOutcome>([
-    [OutcomeStatus.SUCCESS_MONO, (o: TournamentsOutcome) => {
-        const oBody = (o as OutcomeWithMonoBody<T1>).body;
+const tournamentsSlashCommandDescriptions = new Map<TournamentsStatus, (o: TournamentsOutcome) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>([
+    [TournamentsSpecificStatus.SUCCESS_DETAILS, (o: TournamentsOutcome) => {
+        const oBody = (o as TournamentsSuccessDetailsOutcome).body;
         let message = '';
-        if (oBody.data[0].active) {
-            message += `The current tournament:\n${formatTournamentDetails(oBody.data[0])}`;
-            oBody.data.shift();
+        if (!oBody.current) {
+            message += `There is no current tournament.`;
+        } else if (oBody.currentIsHidden) {
+            message += `The current tournament is *hidden*.`;
+        } else {
+            message += `The current tournament:\n${formatTournamentDetails(oBody.current!)}`;
         }
-        const activeTournaments = oBody.data.filter(tournament => tournament.active);
-        const inactiveTournaments = oBody.data.filter(tournament => !tournament.active);
-        if (activeTournaments.length > 0) {
-            message += `\n\nOther active tournaments:`;
-            activeTournaments.forEach(tournament => {
+        if (oBody.active.length > 0) {
+            message += oBody.currentIsHidden ? `\n\nActive tournaments:` : `\n\nOther active tournaments:`;
+            oBody.active.forEach((tournament: ResolvedTournament) => {
                 message += `\n${formatTournamentDetails(tournament)}`;
             });
         }
-        if (inactiveTournaments.length > 0) {
+        if (oBody.inactive.length > 0) {
             message += `\n\nInactive tournaments:`;
-            inactiveTournaments.forEach(tournament => {
+            oBody.inactive.forEach((tournament: ResolvedTournament) => {
                 message += `\n${formatTournamentDetails(tournament)}`;
             });
         }
         return {
-            userMessage: message, ephemeral: true,
-        };
-    }],
-    [OutcomeStatus.SUCCESS_DUO, (o: TournamentsOutcome) => {
-        const oBody = (o as OutcomeWithDuoBody<T1>).body;
-        let resultString = 'The current tournament is *hidden*.';
-        const activeTournaments = oBody.data1.filter(tournament => tournament.active);
-        const inactiveTournaments = oBody.data1.filter(tournament => !tournament.active);
-        if (activeTournaments.length > 0) resultString += `\n\nActive tournaments: ${activeTournaments.map(tournament => `**${tournament.name}**`).join(', ')}`;
-        if (inactiveTournaments.length > 0) resultString += `\n\nInactive tournaments: ${inactiveTournaments.map(tournament => `**${tournament.name}**`).join(', ')}`;
-        
-        return {
-            userMessage: resultString, ephemeral: true,
-        };
+            embeds: [new EmbedBuilder()
+                .setTitle(`Tournaments in ${oBody.serverDetails.name}`)
+                .setDescription(message)
+                .setThumbnail(oBody.serverDetails.icon)
+                .toJSON()
+            ],
+            ephemeral: true,
+        } as SlashCommandEmbedDescribedOutcome;
     }],
     [OutcomeStatus.FAIL, (_: TournamentsOutcome) => ({
-        userMessage: 'There were tournaments found in this server.', ephemeral: true,
+        userMessage: 'There were no tournaments found in this server.', ephemeral: true,
     })],
 ]);
 
