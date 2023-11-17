@@ -86,8 +86,10 @@ const tournamentsSolver = async (params: TournamentsSolverParams): Promise<Tourn
         const inactiveTournaments = new Array<TournamentDocument>();
         for (const tournament of allTournaments) {
             if (!params.judgeView && !tournament.visibility) continue;
-            if (tournament.active) activeTournaments.push(tournament);
-            else inactiveTournaments.push(tournament);
+            if (tournament.active) {
+                if (current && tournament._id.equals(current._id)) continue;
+                activeTournaments.push(tournament);
+            } else inactiveTournaments.push(tournament);
         }
         const active = resolveTournaments(activeTournaments);
         const inactive = resolveTournaments(inactiveTournaments);
