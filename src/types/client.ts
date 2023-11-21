@@ -1,5 +1,4 @@
 import { Client, Collection, GatewayIntentBits } from 'discord.js';
-import { CustomCommand } from './customCommand.js';
 import { RendezvousSlashCommand } from '../commands/slashcommands/architecture/rendezvousCommand.js';
 import { OutcomeTypeConstraint } from './outcome.js';
 
@@ -8,12 +7,12 @@ type RdvsSlashCommandAlias = RendezvousSlashCommand<OutcomeTypeConstraint, unkno
 
 type SlashCommandCollectionPair = {
     name: string;
-    command: CustomCommand | RdvsSlashCommandAlias;
+    command: RdvsSlashCommandAlias;
 }
 
 export class TournamentionClient extends Client {
     private static instance: TournamentionClient;
-    private commands: Collection<string, CustomCommand | RdvsSlashCommandAlias>;
+    private commands: Collection<string, RdvsSlashCommandAlias>;
 
     private constructor() {
         super({
@@ -31,11 +30,11 @@ export class TournamentionClient extends Client {
         });
     }
 
-    public getCommands(): Collection<string, CustomCommand | RdvsSlashCommandAlias> {
+    public getCommands(): Collection<string, RdvsSlashCommandAlias> {
         return this.commands;
     }
 
-    public getCommand(name: string): CustomCommand | RdvsSlashCommandAlias | undefined {
+    public getCommand(name: string): RdvsSlashCommandAlias | undefined {
         return this.commands.get(name);
     }
 
