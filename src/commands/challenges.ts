@@ -3,7 +3,7 @@ import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js
 import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../types/outcome.js';
 import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
 import { ValueOf } from '../types/typelogic.js';
-import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
+import { Constraint, validateConstraints, ALWAYS_OPTION_CONSTRAINT } from './slashcommands/architecture/validation.js';
 import { getDifficultyByEmoji, getTournamentByName } from '../backend/queries/tournamentQueries.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
 import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
@@ -151,7 +151,7 @@ const challengesSlashCommandValidator = async (interaction: LimitedCommandIntera
     const memberIsJudgeOrAdmin = (judge && judge.isActiveJudge) || (interaction.member as GuildMember).permissions.has(PermissionsBitField.Flags.Administrator);
     
     const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([]);
-    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
+    const optionConstraints = new Map<CommandInteractionOption | null | ALWAYS_OPTION_CONSTRAINT, Constraint<ValueOf<CommandInteractionOption>>[]>([
         [tournament, [
             // Ensure that the tournament exists, if it was provided
             {
@@ -162,9 +162,8 @@ const challengesSlashCommandValidator = async (interaction: LimitedCommandIntera
                 }
             },
         ]],
-        [game, [
-            // Ensure that the game is valid, if it was provided
-            // First, ensure that either the specified Tournament exists (seemingly redundantly) or there is a current Tournament
+        ['ALWAYS_OPTION_CONSTRAINT', [
+            // Ensure that either the specified Tournament exists (seemingly redundantly) or there is a current Tournament
             {
                 category: OptionValidationErrorStatus.OPTION_UNDEFAULTABLE,
                 func: async function(_: ValueOf<CommandInteractionOption>): Promise<boolean> {
@@ -172,7 +171,9 @@ const challengesSlashCommandValidator = async (interaction: LimitedCommandIntera
                     return tournamentDocument !== null;
                 },
             },
-            // Then, ensure that some challenge exists for the specified game
+        ]],
+        [game, [
+            // Ensure that some challenge exists for the specified game
             {
                 category: OptionValidationErrorStatus.OPTION_DNE,
                 func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
@@ -182,16 +183,7 @@ const challengesSlashCommandValidator = async (interaction: LimitedCommandIntera
             },
         ]],
         [difficulty, [
-            // Ensure that the difficulty is valid, if it was provided
-            // First, ensure that either the specified Tournament exists (seemingly redundantly) or there is a current Tournament
-            {
-                category: OptionValidationErrorStatus.OPTION_UNDEFAULTABLE,
-                func: async function(_: ValueOf<CommandInteractionOption>): Promise<boolean> {
-                    const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
-                    return tournamentDocument !== null;
-                },
-            },
-            // Then, ensure that some challenge exists for the specified difficulty
+            // Ensure that some challenge exists for the specified difficulty
             {
                 category: OptionValidationErrorStatus.OPTION_DNE,
                 func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
