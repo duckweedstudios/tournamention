@@ -5,8 +5,8 @@ import { setJudgeActive, setOrCreateActiveJudge } from '../../backend/queries/pr
 import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithDuoListBody, SlashCommandDescribedOutcome } from '../../types/outcome.js';
 import { ValueOf } from '../../types/typelogic.js';
-import { Constraint, validateConstraints } from './architecture/validation.js';
-import { SimpleRendezvousSlashCommand } from './architecture/rendezvousCommand.js';
+import { Constraint, validateConstraints } from '../architecture/validation.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 
 /**
  * Alias for the first generic type of the command.

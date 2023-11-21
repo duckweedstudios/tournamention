@@ -8,10 +8,10 @@ import { OptionValidationError, OptionValidationErrorStatus } from '../../types/
 import { SubmissionStatus } from '../../backend/schemas/submission.js';
 import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
 import { ValueOf } from '../../types/typelogic.js';
-import { Constraint, validateConstraints } from './architecture/validation.js';
+import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { getTournamentByName } from '../../backend/queries/tournamentQueries.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
-import { SimpleRendezvousSlashCommand } from './architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 
 /**
  * Alias for the first generic type of the command.

@@ -4,12 +4,12 @@ import { getDifficultyByEmoji, getTournamentByName } from '../../backend/queries
 import { DifficultyDocument } from '../../types/customDocument.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
 import { getChallengeOfTournamentByName, updateChallengeById } from '../../backend/queries/challengeQueries.js';
-import { SimpleRendezvousSlashCommand } from './architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../../types/outcome.js';
 import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { ValueOf } from '../../types/typelogic.js';
-import { Constraint, validateConstraints } from './architecture/validation.js';
+import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
 
 /**

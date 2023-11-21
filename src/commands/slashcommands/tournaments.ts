@@ -7,9 +7,9 @@ import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries
 import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../../types/outcome.js';
 import { ValueOf } from '../../types/typelogic.js';
-import { Constraint, validateConstraints } from './architecture/validation.js';
+import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
-import { SimpleRendezvousSlashCommand } from './architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 import { TournamentionClient } from '../../types/client.js';
 
 /**

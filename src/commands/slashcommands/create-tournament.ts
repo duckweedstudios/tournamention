@@ -1,14 +1,14 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { TournamentBuilder, getTournamentByName } from '../../backend/queries/tournamentQueries.js';
-import { SimpleRendezvousSlashCommand } from './architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../../types/outcome.js';
 import { ResolvedTournament, resolveTournaments } from '../../types/customDocument.js';
 import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
 import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { ValueOf } from '../../types/typelogic.js';
-import { Constraint, validateConstraints } from './architecture/validation.js';
+import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { formatTournamentDetails } from './tournaments.js';
 
 /**

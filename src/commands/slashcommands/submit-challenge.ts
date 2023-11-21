@@ -11,8 +11,8 @@ import { SubmissionStatus } from '../../backend/schemas/submission.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../../types/outcome.js';
 import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
 import { ValueOf } from '../../types/typelogic.js';
-import { Constraint, validateConstraints } from './architecture/validation.js';
-import { SimpleRendezvousSlashCommand } from './architecture/rendezvousCommand.js';
+import { Constraint, validateConstraints } from '../architecture/validation.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 
 /**
  * Alias for the first generic type of the command.
