@@ -1,15 +1,15 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
-import { getTournamentByName, updateTournament } from '../backend/queries/tournamentQueries.js';
-import { ResolvedTournament, resolveTournaments } from '../types/customDocument.js';
-import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
-import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
-import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { ValueOf } from '../types/typelogic.js';
-import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
-import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
+import { getTournamentByName, updateTournament } from '../../backend/queries/tournamentQueries.js';
+import { ResolvedTournament, resolveTournaments } from '../../types/customDocument.js';
+import { SimpleRendezvousSlashCommand } from './architecture/rendezvousCommand.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../../types/outcome.js';
+import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { ValueOf } from '../../types/typelogic.js';
+import { Constraint, validateConstraints } from './architecture/validation.js';
+import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { formatTournamentDetails } from './tournaments.js';
-import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
+import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
 
 /**
  * Alias for the first generic type of the command.
