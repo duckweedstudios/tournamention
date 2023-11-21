@@ -4,6 +4,7 @@ import { Challenge, ChallengeModel } from '../schemas/challenge.js';
 import { UpdateChallengeParams } from '../../types/apiPayloadObjects.js';
 import { Ref } from '@typegoose/typegoose';
 import { Tournament, TournamentModel } from '../schemas/tournament.js';
+import { Difficulty } from '../schemas/difficulty.js';
 // CREATE / POST
 
 // READ / GET
@@ -21,6 +22,16 @@ export const getChallengeOfTournamentByName = async (name: string, tournament: T
 export const getChallengesOfTournament = async (tournamentId: Ref<Tournament> | string): Promise<ChallengeDocument[]> => {
     const tournament = await TournamentModel.findById(tournamentId);
     return ChallengeModel.find().where('_id').in(tournament!.challenges).exec();
+};
+
+export const getChallengesOfTournamentByGame = async (tournamentId: Ref<Tournament> | string, game: string): Promise<ChallengeDocument[]> => {
+    const tournament = await TournamentModel.findById(tournamentId);
+    return ChallengeModel.find().where('_id').in(tournament!.challenges).where('game').equals(game).exec();
+};
+
+export const getChallengesOfTournamentByDifficulty = async (tournamentId: Ref<Tournament> | string, difficulty: Ref<Difficulty> | string): Promise<ChallengeDocument[]> => {
+    const tournament = await TournamentModel.findById(tournamentId);
+    return ChallengeModel.find().where('_id').in(tournament!.challenges).where('difficulty').equals(difficulty).exec();
 };
 
 // UPDATE / PUT

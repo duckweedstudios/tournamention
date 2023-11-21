@@ -1,24 +1,27 @@
 import { CommandInteraction, SlashCommandBuilder } from 'discord.js';
-import { OptionValidationErrorOutcome, SlashCommandDescribedOutcome, isValidationErrorOutcome } from '../../../types/outcome.js';
+import { DescriptionMap, OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeTypeConstraint, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, isEmbedDescribedOutcome, isValidationErrorOutcome } from '../../../types/outcome.js';
 import { LimitedCommandInteraction, limitCommandInteraction } from '../../../types/limitedCommandInteraction.js';
+import { defaultSlashCommandDescriptions } from '../../../types/defaultSlashCommandDescriptions.js';
 
-export interface RendezvousCommand<O, S, T1> {
+export interface RendezvousCommand<O extends OutcomeTypeConstraint, S, T1> {
     readonly interfacer: SlashCommandBuilder | undefined;
     readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome) => Promise<void>;
-    readonly describer: (outcome: O) => SlashCommandDescribedOutcome; // TODO: Generalize a DescribedOutcome type when/as needed
+    readonly describer: (outcome: O) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome; // TODO: Generalize a DescribedOutcome type when/as needed
     readonly validator: (interaction: LimitedCommandInteraction) => Promise<S | OptionValidationErrorOutcome<T1>>; // Generics for solverParams or (e.g. OptionValidationError)Outcome
     readonly solver: (solverParams: S) => Promise<O>;
 
     readonly execute: (interaction: CommandInteraction) => Promise<void>;
 }
 
-export class RendezvousSlashCommand<O, S, T1> implements RendezvousCommand<O, S, T1> {
+export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1> implements RendezvousCommand<O, S, T1> {
+
     constructor(
         public readonly interfacer: SlashCommandBuilder,
-        public readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome) => Promise<void>,
-        public readonly describer: (outcome: O) => SlashCommandDescribedOutcome,
+        public readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome) => Promise<void>,
+        public readonly describer: (outcome: O) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome,
         public readonly validator: (interaction: LimitedCommandInteraction) => Promise<S | OptionValidationErrorOutcome<T1>>,
         public readonly solver: (solverParams: S) => Promise<O>,
+        
     ) {
         this.interfacer = interfacer;
         this.replyer = replyer;
@@ -45,5 +48,31 @@ export class RendezvousSlashCommand<O, S, T1> implements RendezvousCommand<O, S,
         const describedOutcome = this.describer(outcome);
         // Replyer step
         await this.replyer(interaction, describedOutcome);
+    }
+
+    public static async simpleReplyer(interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome) {
+        if (isEmbedDescribedOutcome(describedOutcome)) interaction.reply({ embeds: describedOutcome.embeds, components: describedOutcome.components, ephemeral: describedOutcome.ephemeral });
+        else interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
+    }
+}
+
+export class SimpleRendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, CommandStatus = OutcomeStatus> extends RendezvousSlashCommand<O, S, T1> {
+    constructor(
+        interfacer: SlashCommandBuilder,
+        descriptions: DescriptionMap<CommandStatus, O>,
+        validator: (interaction: LimitedCommandInteraction) => Promise<S | OptionValidationErrorOutcome<T1>>,
+        solver: (solverParams: S) => Promise<O>,
+    ) {
+        const describer = (outcome: O) => this.simpleDescriber(outcome, descriptions);
+        super(interfacer, RendezvousSlashCommand.simpleReplyer, describer, validator, solver);
+    }
+
+    private simpleDescriber(outcome: O, descriptions: Map<CommandStatus, (o: O) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>) {
+        if (descriptions.has(outcome.status as CommandStatus)) return descriptions.get(outcome.status as CommandStatus)!(outcome);
+        // Fallback to trying default descriptions
+        const defaultOutcome = outcome as unknown as Outcome<string>;
+        if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
+            return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
+        } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
     }
 }

@@ -1,10 +1,9 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
 import { TournamentBuilder, getTournamentByName } from '../backend/queries/tournamentQueries.js';
-import { RendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
 import { ResolvedTournament, resolveTournaments } from '../types/customDocument.js';
-import { defaultSlashCommandDescriptions } from '../types/defaultSlashCommandDescriptions.js';
 import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
 import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
@@ -170,20 +169,7 @@ const createTournamentSlashCommandDescriptions = new Map<CreateTournamentStatus,
     }],
 ]);
 
-const createTournamentSlashCommandOutcomeDescriber = (outcome: CreateTournamentOutcome): SlashCommandDescribedOutcome => {
-    if (createTournamentSlashCommandDescriptions.has(outcome.status)) return createTournamentSlashCommandDescriptions.get(outcome.status)!(outcome);
-    // Fallback to trying default descriptions
-    const defaultOutcome = outcome as Outcome<string>;
-    if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
-        return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
-    } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
-};
-
-const createTournamentSlashCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome): Promise<void> => {
-    interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
-};
-
-const CreateTournamentCommand = new RendezvousSlashCommand<CreateTournamentOutcome, CreateTournamentSolverParams, T1>(
+const CreateTournamentCommand = new SimpleRendezvousSlashCommand<CreateTournamentOutcome, CreateTournamentSolverParams, T1, CreateTournamentStatus>(
     new SlashCommandBuilder()
         .setName('create-tournament')
         .setDescription('Create a new tournament from scratch.')
@@ -193,8 +179,7 @@ const CreateTournamentCommand = new RendezvousSlashCommand<CreateTournamentOutco
         .addBooleanOption(option => option.setName('active').setDescription('Whether the tournament is accepting submissions now. Defaults true.').setRequired(false))
         .addStringOption(option => option.setName('status-description').setDescription('An explanation of the tournament\'s current status.').setRequired(false))
         .addStringOption(option => option.setName('duration').setDescription('A simple description of when the tournament takes place.').setRequired(false)) as SlashCommandBuilder,
-    createTournamentSlashCommandReplyer,
-    createTournamentSlashCommandOutcomeDescriber,
+    createTournamentSlashCommandDescriptions,
     createTournamentSlashCommandValidator,
     createTournamentSolver,
 );

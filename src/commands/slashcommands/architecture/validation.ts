@@ -7,13 +7,16 @@ export type Constraint<T> = {
     category: OptionValidationErrorStatus;
     func: (val: T) => Promise<boolean>;
 }
+
+export type ALWAYS_OPTION_CONSTRAINT = 'ALWAYS_OPTION_CONSTRAINT';
+
 /**
  * Runs every constraint provided on the metadata fields and options of the (slash command) interaction, throwing an `OptionValidationError` on the first failure.
  * @param interaction The `LimitedCommandInteraction` form of a slash command `CommandInteraction`.
  * @param metadataConstraintMap A map of a metadata field of `LimitedCommandInteraction` to a list of one or many `Constraint`s to run on that field.
  * @param optionConstraintMap A map of options of the slash command to a list of one or many `Constraint`s to run on that option.
  */
-export const validateConstraints = async (interaction: LimitedCommandInteraction, metadataConstraintMap: Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>, optionConstraintMap: Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>): Promise<void> => {
+export const validateConstraints = async (interaction: LimitedCommandInteraction, metadataConstraintMap: Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>, optionConstraintMap: Map<CommandInteractionOption | null | ALWAYS_OPTION_CONSTRAINT, Constraint<ValueOf<CommandInteractionOption>>[]>): Promise<void> => {
     // Using for ... of syntax because forEach does not support async functions.
     for (const [metadataField, constraints] of metadataConstraintMap) {
         for (const constraint of constraints) {
@@ -29,6 +32,19 @@ export const validateConstraints = async (interaction: LimitedCommandInteraction
     for (const [option, constraints] of optionConstraintMap) {
         // If the option wasn't provided, don't attempt to validate it.
         if (!option) continue;
+
+        // If the option is a special ALWAYS_OPTION_CONSTRAINT, run the constraints on it.
+        if (option === 'ALWAYS_OPTION_CONSTRAINT') {
+            for (const constraint of constraints) {
+                if (!(await constraint.func('ALWAYS_OPTION_CONSTRAINT'))) {
+                    throw new OptionValidationError(`Validation failed: check ${constraint.category} on option ${option} failed for value true.`,
+                        constraint,
+                        option,
+                        'ALWAYS_OPTION_CONSTRAINT');
+                }
+            }
+            continue;
+        }
 
         // Determine the intended option data based on `option.type`.
         let optionValue: ValueOf<CommandInteractionOption>;
