@@ -1,5 +1,5 @@
 import { APIActionRowComponent, APIButtonComponent, APIEmbed } from 'discord.js';
-import { Constraint } from '../commands/slashcommands/architecture/validation.js';
+import { Constraint } from '../commands/architecture/validation.js';
 
 export type OutcomeTypeConstraint = {
     status: unknown,

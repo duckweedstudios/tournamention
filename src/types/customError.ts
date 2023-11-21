@@ -1,4 +1,4 @@
-import { Constraint } from '../commands/slashcommands/architecture/validation.js';
+import { Constraint } from '../commands/architecture/validation.js';
 
 export class DuplicateSubdocumentError extends Error {
     constructor(message: string) {

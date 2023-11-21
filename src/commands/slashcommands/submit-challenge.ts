@@ -1,18 +1,18 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteractionOption } from 'discord.js';
-import { getTournamentByName } from '../backend/queries/tournamentQueries.js';
-import { SubmissionDocument } from '../types/customDocument.js';
-import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-import { getChallengeOfTournamentByName } from '../backend/queries/challengeQueries.js';
-import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
-import { getOrCreateContestant } from '../backend/queries/profileQueries.js';
-import { createSubmission, getSubmissionsForChallengeFromContestant } from '../backend/queries/submissionQueries.js';
-import { SubmissionStatus } from '../backend/schemas/submission.js';
-import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
-import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { ValueOf } from '../types/typelogic.js';
-import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
-import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { getTournamentByName } from '../../backend/queries/tournamentQueries.js';
+import { SubmissionDocument } from '../../types/customDocument.js';
+import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
+import { getChallengeOfTournamentByName } from '../../backend/queries/challengeQueries.js';
+import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
+import { getOrCreateContestant } from '../../backend/queries/profileQueries.js';
+import { createSubmission, getSubmissionsForChallengeFromContestant } from '../../backend/queries/submissionQueries.js';
+import { SubmissionStatus } from '../../backend/schemas/submission.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../../types/outcome.js';
+import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { ValueOf } from '../../types/typelogic.js';
+import { Constraint, validateConstraints } from '../architecture/validation.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 
 /**
  * Alias for the first generic type of the command.

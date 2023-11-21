@@ -1,16 +1,16 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
-import { getDifficultyByEmoji, getTournamentByName } from '../backend/queries/tournamentQueries.js';
-import { DifficultyDocument } from '../types/customDocument.js';
-import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-import { getChallengeOfTournamentByName, updateChallengeById } from '../backend/queries/challengeQueries.js';
-import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
-import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
-import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
-import { ValueOf } from '../types/typelogic.js';
-import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
-import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
+import { getDifficultyByEmoji, getTournamentByName } from '../../backend/queries/tournamentQueries.js';
+import { DifficultyDocument } from '../../types/customDocument.js';
+import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
+import { getChallengeOfTournamentByName, updateChallengeById } from '../../backend/queries/challengeQueries.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../../types/outcome.js';
+import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
+import { ValueOf } from '../../types/typelogic.js';
+import { Constraint, validateConstraints } from '../architecture/validation.js';
+import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
 
 /**
  * Alias for the first generic type of the command.

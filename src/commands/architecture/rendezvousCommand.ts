@@ -1,7 +1,7 @@
 import { CommandInteraction, SlashCommandBuilder } from 'discord.js';
-import { DescriptionMap, OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeTypeConstraint, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, isEmbedDescribedOutcome, isValidationErrorOutcome } from '../../../types/outcome.js';
-import { LimitedCommandInteraction, limitCommandInteraction } from '../../../types/limitedCommandInteraction.js';
-import { defaultSlashCommandDescriptions } from '../../../types/defaultSlashCommandDescriptions.js';
+import { DescriptionMap, OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeTypeConstraint, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, isEmbedDescribedOutcome, isValidationErrorOutcome } from '../../types/outcome.js';
+import { LimitedCommandInteraction, limitCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { defaultSlashCommandDescriptions } from '../../types/defaultSlashCommandDescriptions.js';
 
 export interface RendezvousCommand<O extends OutcomeTypeConstraint, S, T1> {
     readonly interfacer: SlashCommandBuilder | undefined;

@@ -1,16 +1,16 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteractionOption, EmbedBuilder, GuildMember, PermissionsBitField } from 'discord.js';
-import { getTournamentsByGuild } from '../backend/queries/tournamentQueries.js';
-import { ResolvedTournament, TournamentDocument, resolveTournaments } from '../types/customDocument.js';
-import { OptionValidationError } from '../types/customError.js';
-import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../types/outcome.js';
-import { ValueOf } from '../types/typelogic.js';
-import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
-import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
-import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
-import { TournamentionClient } from '../types/client.js';
+import { getTournamentsByGuild } from '../../backend/queries/tournamentQueries.js';
+import { ResolvedTournament, TournamentDocument, resolveTournaments } from '../../types/customDocument.js';
+import { OptionValidationError } from '../../types/customError.js';
+import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
+import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../../types/outcome.js';
+import { ValueOf } from '../../types/typelogic.js';
+import { Constraint, validateConstraints } from '../architecture/validation.js';
+import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
+import { TournamentionClient } from '../../types/client.js';
 
 /**
  * Alias for the first generic type of the command.
