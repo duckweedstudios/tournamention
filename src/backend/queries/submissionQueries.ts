@@ -4,6 +4,7 @@ import { Challenge } from '../schemas/challenge.js';
 import { Contestant } from '../schemas/contestant.js';
 import { Judge } from '../schemas/judge.js';
 import { Types as MongooseTypes, UpdateWriteOpResult } from 'mongoose';
+import { getCurrentTournament } from './guildSettingsQueries.js';
 
 // CREATE / POST
 export const createSubmission = async (challengeID: Ref<Challenge>, contestantID: Ref<Contestant>, proof: string) => {
@@ -71,6 +72,12 @@ export const getNewestSubmissionForChallengeFromContestant = async (challengeId:
     const newestSubmission = await SubmissionModel.find({ challengeID: challengeId, contestantID: contestantId }).sort({ createdAt: 'descending' }).limit(1).exec();
     if (newestSubmission.length < 1) return null;
     else return newestSubmission[0];
+};
+
+export const getSubmissionInCurrentTournamentFromContestantWithLink = async (guildId: string, contestantId: Ref<Contestant> | string, link: string) => {
+    const currentTournament = await getCurrentTournament(guildId);
+    if (!currentTournament) return null;
+    return SubmissionModel.findOne({ challengeID: { $in: currentTournament.challenges }, contestantID: contestantId, proof: link }).exec();
 };
 
 export const getReviewNoteById = async (id: Ref<ReviewNote> | string) => {
