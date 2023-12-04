@@ -1,4 +1,4 @@
-import { Snowflake, GuildMember, CommandInteraction, InteractionType, APIInteractionGuildMember } from 'discord.js';
+import { Snowflake, GuildMember, CommandInteraction, InteractionType, APIInteractionGuildMember, Message, MessageContextMenuCommandInteraction } from 'discord.js';
 import { CommandInteractionOptionResolverAlias } from './discordTypeAlias.js';
 
 export type LimitedCommandInteraction = {
@@ -8,11 +8,13 @@ export type LimitedCommandInteraction = {
     member: GuildMember | APIInteractionGuildMember | null;
     options: CommandInteractionOptionResolverAlias;
     type: InteractionType;
+    targetMessage: Message | null;
 };
 
 export const limitCommandInteraction = (interaction: CommandInteraction): LimitedCommandInteraction => {
     const limitedCommandInteraction = {
-        ...interaction
+        ...interaction,
+        targetMessage: interaction.isContextMenuCommand() ? (interaction as MessageContextMenuCommandInteraction).targetMessage : null,
     };
     if (!limitedCommandInteraction.guildId || !limitedCommandInteraction.member) {
         console.error(`Error in limitedCommandInteraction.ts: ${interaction}`);
