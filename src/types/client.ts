@@ -1,6 +1,7 @@
 import { Client, Collection, GatewayIntentBits } from 'discord.js';
 import { RendezvousSlashCommand } from '../commands/architecture/rendezvousCommand.js';
 import { OutcomeTypeConstraint } from './outcome.js';
+import config from '../config.js';
 
 // Type alias for RendezvousSlashCommand with unknown generic parameters.
 type RdvsSlashCommandAlias = RendezvousSlashCommand<OutcomeTypeConstraint, unknown, unknown>;
@@ -15,10 +16,10 @@ export class TournamentionClient extends Client {
     private commands: Collection<string, RdvsSlashCommandAlias>;
 
     private constructor() {
+        const intents = [GatewayIntentBits.Guilds];
+        if (!config.featureFlags.privacyMode) intents.push(GatewayIntentBits.MessageContent);
         super({
-            intents: [
-                GatewayIntentBits.Guilds,
-            ],
+            intents,
         });
         this.commands = new Collection();
         TournamentionClient.instance = this;
