@@ -1,8 +1,13 @@
 import { UpdateWriteOpResult } from 'mongoose';
-import { ContestantDocument, JudgeDocument } from '../../types/customDocument.js';
+import { ChallengeDocument, ContestantDocument, JudgeDocument, SubmissionDocument } from '../../types/customDocument.js';
 import { Contestant, ContestantModel } from '../schemas/contestant.js';
 import { Judge, JudgeModel } from '../schemas/judge.js';
 import { Ref } from '@typegoose/typegoose';
+import { SubmissionModel, SubmissionStatus } from '../schemas/submission.js';
+import { getSubmissionsFromContestant } from './submissionQueries.js';
+import { getChallengeById, getChallengesOfTournament } from './challengeQueries.js';
+import { getDifficultyByID } from './tournamentQueries.js';
+import { Tournament } from '../schemas/tournament.js';
 
 // CREATE / POST
 export const createContestant = async (guildId: string, memberId: string): Promise<ContestantDocument> => {
@@ -50,6 +55,30 @@ export const getJudgeById = async (id: Ref<Judge> | string): Promise<JudgeDocume
 
 export const getJudgeByGuildIdAndMemberId = async (guildId: string, memberId: string): Promise<JudgeDocument | null> => {
     return JudgeModel.findOne({ guildID: guildId, userID: memberId }).exec();
+};
+
+const getPointSumOfSubmissions = async (submissions: SubmissionDocument[]): Promise<number> => {
+    let points = 0;
+    for (const submission of submissions) {
+        if ((await submission.get('status') as SubmissionStatus) === SubmissionStatus.ACCEPTED) {
+            const challenge = await getChallengeById(submission.challengeID);
+            if (challenge!.difficulty) {
+                points += (await getDifficultyByID(challenge!.difficulty))!.pointValue;
+            } else points += 1;
+        }
+    }
+    return points;
+};
+
+export const getCareerPointsOfContestant = async (contestantId: Ref<Contestant> | string): Promise<number> => {
+    const contestantSubmissions = await getSubmissionsFromContestant(contestantId);
+    return getPointSumOfSubmissions(contestantSubmissions);
+};
+
+export const getPointsOfContestantForTournament = async (contestantId: Ref<Contestant> | string, tournamentId: Ref<Tournament> | string): Promise<number> => {
+    const tournamentChallengeIds = (await getChallengesOfTournament(tournamentId)).map((challenge: ChallengeDocument) => challenge._id);
+    const submissions = await SubmissionModel.find().where('contestantID').equals(contestantId).where('challengeID').in(tournamentChallengeIds).exec();
+    return getPointSumOfSubmissions(submissions);
 };
 
 // UPDATE / PUT
