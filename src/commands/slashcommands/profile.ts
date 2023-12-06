@@ -8,6 +8,7 @@ import { OptionValidationError } from '../../types/customError.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
 import { getCareerPointsOfContestant, getOrCreateContestant, getPointsOfContestantForTournament } from '../../backend/queries/profileQueries.js';
 import { TournamentionClient } from '../../types/client.js';
+import { ResolvedTournament, resolveTournaments } from '../../types/customDocument.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -31,19 +32,22 @@ enum ProfileSpecificStatus {
  */
 type ProfileStatus = ProfileSpecificStatus | OutcomeStatus;
 
+type ProfileSuccessDetailsBody = {
+    currentPoints: number;
+    currentTournament: ResolvedTournament | null;
+    careerPoints: number;
+    userDetails: {
+        name: string;
+        icon: string;
+    }
+};
+
 /**
  * The outcome format for the specific status code(s).
  */
 type ProfileSuccessDetailsOutcome = {
     status: ProfileSpecificStatus.SUCCESS_DETAILS;
-    body: {
-        currentPoints: number;
-        careerPoints: number;
-        userDetails: {
-            name: string;
-            icon: string;
-        }
-    };
+    body: ProfileSuccessDetailsBody;
 };
 
 /**
@@ -77,6 +81,7 @@ const profileSolver = async (params: ProfileSolverParams): Promise<ProfileOutcom
             status: ProfileSpecificStatus.SUCCESS_DETAILS,
             body: {
                 currentPoints: (await currentPoints),
+                currentTournament: (currentTournament ? (await resolveTournaments([currentTournament]))[0] : null),
                 careerPoints: (await careerPoints),
                 userDetails: {
                     name: (await member).displayName,
@@ -120,13 +125,24 @@ const profileSlashCommandValidator = async (interaction: LimitedCommandInteracti
     };
 };
 
+const formatProfileDetails = (solverResultBody: ProfileSuccessDetailsBody): string => {
+    let result = '';
+    if (solverResultBody.currentTournament) {
+        result += `Points in **${solverResultBody.currentTournament.name}**: **${solverResultBody.currentPoints}**`;
+    } else {
+        result += 'Points in current tournament: **N/A**';
+    }
+    result += `\nOverall points: **${solverResultBody.careerPoints}**`;
+    return result;
+};
+
 const profileSlashCommandDescriptions = new Map<ProfileStatus, (o: ProfileOutcome) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>([
     [ProfileSpecificStatus.SUCCESS_DETAILS, (o: ProfileOutcome) => {
         const oBody = (o as ProfileSuccessDetailsOutcome).body;
         return {
             embeds: [new EmbedBuilder()
                 .setTitle(`${oBody.userDetails.name}'s Profile`)
-                .setDescription(`**Current Points:** ${oBody.currentPoints}\n**Career Points:** ${oBody.careerPoints}`)
+                .setDescription(formatProfileDetails(oBody))
                 .setThumbnail(oBody.userDetails.icon)
                 .toJSON()
             ],
