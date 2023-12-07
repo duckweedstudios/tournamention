@@ -1,17 +1,18 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
-import { OutcomeStatus, Outcome, SlashCommandDescribedOutcome, OutcomeWithDuoListBody, OutcomeWithDuoBody, OutcomeWithMonoBody, OptionValidationErrorOutcome } from '../types/outcome.js';
-import { getChallengeOfTournamentByName } from '../backend/queries/challengeQueries.js';
-import { getContestantByGuildIdAndMemberId, getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
-import { createOrUpdateReviewNoteAndAddTo, getNewestSubmissionForChallengeFromContestant } from '../backend/queries/submissionQueries.js';
-import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
-import { SubmissionStatus } from '../backend/schemas/submission.js';
-import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { ValueOf } from '../types/typelogic.js';
-import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
-import { getTournamentByName } from '../backend/queries/tournamentQueries.js';
-import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { OutcomeStatus, Outcome, SlashCommandDescribedOutcome, OutcomeWithDuoListBody, OutcomeWithDuoBody, OutcomeWithMonoBody, OptionValidationErrorOutcome } from '../../types/outcome.js';
+import { getChallengeOfTournamentByName } from '../../backend/queries/challengeQueries.js';
+import { getContestantByGuildIdAndMemberId, getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
+import { createOrUpdateReviewNoteAndAddTo, getNewestSubmissionForChallengeFromContestant } from '../../backend/queries/submissionQueries.js';
+import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
+import { SubmissionStatus } from '../../backend/schemas/submission.js';
+import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { ValueOf } from '../../types/typelogic.js';
+import { Constraint, validateConstraints } from '../architecture/validation.js';
+import { getTournamentByName } from '../../backend/queries/tournamentQueries.js';
+import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
+import { JudgeDocument, SubmissionDocument } from '../../types/customDocument.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -73,6 +74,28 @@ interface JudgeSubmissionSolverParams {
     tournamentName?: string | undefined;
 }
 
+export enum MakeReviewNoteAndInterpretResultOutcomeStatus {
+    SUCCESS_NO_CHANGE = 'SUCCESS_NO_CHANGE',
+    SUCCESS_SUBMISSION_APPEALED = 'SUCCESS_SUBMISSION_APPEALED',
+    SUCCESS_SUBMISSION_REVIEWED = 'SUCCESS_SUBMISSION_REVIEWED',
+    FAIL = 'FAIL',
+}
+
+export const makeReviewNoteAndInterpretResult = async (submission: SubmissionDocument, judge: JudgeDocument, approve: boolean, notes?: string | undefined): Promise<MakeReviewNoteAndInterpretResultOutcomeStatus> => {
+    const result = (await createOrUpdateReviewNoteAndAddTo(submission, judge, approve ? SubmissionStatus.ACCEPTED : SubmissionStatus.REJECTED, notes))!;
+    // The submission was reviewed before and is already in the desired status
+    if (result.matchedCount === 1 && result.modifiedCount === 0)
+        return MakeReviewNoteAndInterpretResultOutcomeStatus.SUCCESS_NO_CHANGE;
+    // The submission was reviewed before and was modified to the desired status
+    if (result.matchedCount === 1 && result.modifiedCount === 1)
+        return MakeReviewNoteAndInterpretResultOutcomeStatus.SUCCESS_SUBMISSION_APPEALED;
+    // The submission was not reviewed before and was created with the desired status
+    if (result.matchedCount === 0 && result.upsertedCount === 1)
+        return MakeReviewNoteAndInterpretResultOutcomeStatus.SUCCESS_SUBMISSION_REVIEWED;
+
+    return MakeReviewNoteAndInterpretResultOutcomeStatus.FAIL;
+};
+
 /**
  * Judges the newest submission for a challenge from a contestant.
  * @param guildId The Discord guild ID.
@@ -133,9 +156,8 @@ const judgeSubmissionSolver = async (params: JudgeSubmissionSolverParams): Promi
         });
 
         // Create a ReviewNote for the submission
-        const result = (await createOrUpdateReviewNoteAndAddTo(submission, judge, params.approve ? SubmissionStatus.ACCEPTED : SubmissionStatus.REJECTED, params.notes))!;
-        if (result.matchedCount === 1 && result.modifiedCount === 0) return ({
-            // The submission was reviewed before and is already in the desired status
+        const result = await makeReviewNoteAndInterpretResult(submission, judge, params.approve, params.notes);
+        if (result === MakeReviewNoteAndInterpretResultOutcomeStatus.SUCCESS_NO_CHANGE) return {
             status: OutcomeStatus.SUCCESS_NO_CHANGE,
             body: {
                 data1: [params.contestantId, params.challengeName],
@@ -143,9 +165,8 @@ const judgeSubmissionSolver = async (params: JudgeSubmissionSolverParams): Promi
                 data2: [params.approve],
                 context2: 'approved',
             },
-        });
-        if (result.matchedCount === 1 && result.modifiedCount === 1) return ({
-            // The submission was reviewed before and was modified to the desired status
+        };
+        if (result === MakeReviewNoteAndInterpretResultOutcomeStatus.SUCCESS_SUBMISSION_APPEALED) return {
             status: JudgeSubmissionSpecificStatus.SUCCESS_SUBMISSION_APPEALED,
             body: {
                 user: contestant.userID,
@@ -153,16 +174,15 @@ const judgeSubmissionSolver = async (params: JudgeSubmissionSolverParams): Promi
                 previousApproved: !params.approve,
                 approved: params.approve,
             },
-        });
-        if (result.matchedCount === 0 && result.upsertedCount === 1) return ({
-            // The submission was not reviewed before and was created with the desired status
+        };
+        if (result === MakeReviewNoteAndInterpretResultOutcomeStatus.SUCCESS_SUBMISSION_REVIEWED) return {
             status: JudgeSubmissionSpecificStatus.SUCCESS_SUBMISSION_REVIEWED,
             body: {
                 user: contestant.userID,
                 challengeName: params.challengeName,
                 approved: params.approve,
             },
-        });
+        };        
     } catch (err) {
         // No expected thrown errors
     }

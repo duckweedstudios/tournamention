@@ -2,7 +2,7 @@ import { ObjectId } from 'mongodb';
 import { Ref } from '@typegoose/typegoose';
 import { Tournament, TournamentModel } from '../schemas/tournament.js';
 import { DuplicateSubdocumentError, UserMessageError } from '../../types/customError.js';
-import { DifficultyModel } from '../schemas/difficulty.js';
+import { Difficulty, DifficultyModel } from '../schemas/difficulty.js';
 import { ChallengeDocument, DifficultyDocument, TournamentDocument } from '../../types/customDocument.js';
 import { UpdateTournamentParams } from '../../types/apiPayloadObjects.js';
 
@@ -118,7 +118,7 @@ export const isSingleEmoji = (emoji: string): boolean => {
     return matches !== null && matches.length === 1;
 };
 
-export const getDifficultyByID = async (id: ObjectId): Promise<DifficultyDocument | null> => {
+export const getDifficultyByID = async (id: Ref<Difficulty> | string): Promise<DifficultyDocument | null> => {
     return DifficultyModel.findById(id);
 };
 
@@ -128,7 +128,7 @@ export const getDifficultyByEmoji = async (tournament: TournamentDocument, emoji
     if (!resolvedDifficulties) throw new Error(`Error in tournamentQueries.ts: Could not get difficulties for tournament ${tournament._id}`);
     for (const difficulty of resolvedDifficulties) {
         if (difficulty.emoji === emoji) {
-            return getDifficultyByID(difficulty._id);
+            return getDifficultyByID(difficulty);
         }
     }
     return null;

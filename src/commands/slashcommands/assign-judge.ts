@@ -1,12 +1,12 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteractionOption, GuildMember, PermissionsBitField, User } from 'discord.js';
-import { NonexistentJointGuildAndMemberError, OptionValidationError, OptionValidationErrorStatus, UnknownError } from '../types/customError.js';
-import { setJudgeActive, setOrCreateActiveJudge } from '../backend/queries/profileQueries.js';
-import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithDuoListBody, SlashCommandDescribedOutcome } from '../types/outcome.js';
-import { ValueOf } from '../types/typelogic.js';
-import { Constraint, validateConstraints } from './slashcommands/architecture/validation.js';
-import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
+import { NonexistentJointGuildAndMemberError, OptionValidationError, OptionValidationErrorStatus, UnknownError } from '../../types/customError.js';
+import { setJudgeActive, setOrCreateActiveJudge } from '../../backend/queries/profileQueries.js';
+import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithDuoListBody, SlashCommandDescribedOutcome } from '../../types/outcome.js';
+import { ValueOf } from '../../types/typelogic.js';
+import { Constraint, validateConstraints } from '../architecture/validation.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 
 /**
  * Alias for the first generic type of the command.

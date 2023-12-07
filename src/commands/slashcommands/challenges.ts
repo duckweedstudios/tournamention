@@ -1,16 +1,16 @@
 import { CommandInteractionOption, EmbedBuilder, GuildMember, PermissionsBitField, SlashCommandBuilder } from 'discord.js';
-import { LimitedCommandInteraction } from '../types/limitedCommandInteraction.js';
-import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../types/outcome.js';
-import { SimpleRendezvousSlashCommand } from './slashcommands/architecture/rendezvousCommand.js';
-import { ValueOf } from '../types/typelogic.js';
-import { Constraint, validateConstraints, ALWAYS_OPTION_CONSTRAINT } from './slashcommands/architecture/validation.js';
-import { getDifficultyByEmoji, getTournamentByName } from '../backend/queries/tournamentQueries.js';
-import { OptionValidationError, OptionValidationErrorStatus } from '../types/customError.js';
-import { getCurrentTournament } from '../backend/queries/guildSettingsQueries.js';
-import { getChallengesOfTournament, getChallengesOfTournamentByDifficulty, getChallengesOfTournamentByGame } from '../backend/queries/challengeQueries.js';
-import { getJudgeByGuildIdAndMemberId } from '../backend/queries/profileQueries.js';
-import { ChallengeDocument, ResolvedChallenge, ResolvedTournament } from '../types/customDocument.js';
-import { TournamentionClient } from '../types/client.js';
+import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../../types/outcome.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
+import { ValueOf } from '../../types/typelogic.js';
+import { Constraint, validateConstraints, ALWAYS_OPTION_CONSTRAINT } from '../architecture/validation.js';
+import { getDifficultyByEmoji, getTournamentByName } from '../../backend/queries/tournamentQueries.js';
+import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
+import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
+import { getChallengesOfTournament, getChallengesOfTournamentByDifficulty, getChallengesOfTournamentByGame } from '../../backend/queries/challengeQueries.js';
+import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
+import { ChallengeDocument, ResolvedChallenge, ResolvedTournament } from '../../types/customDocument.js';
+import { TournamentionClient } from '../../types/client.js';
 
 /**
  * Alias for the first generic type of the command.

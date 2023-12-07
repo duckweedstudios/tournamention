@@ -1,6 +1,6 @@
-import { LimitedCommandInteraction } from '../../../types/limitedCommandInteraction.js';
-import { ValueOf } from '../../../types/typelogic.js';
-import { OptionValidationError, OptionValidationErrorStatus } from '../../../types/customError.js';
+import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { ValueOf } from '../../types/typelogic.js';
+import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { ApplicationCommandOptionType, CommandInteractionOption } from 'discord.js';
 
 export type Constraint<T> = {
