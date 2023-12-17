@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb';
 import { UpdateWriteOpResult } from 'mongoose';
 import { ChallengeDocument, ContestantDocument, JudgeDocument, SubmissionDocument } from '../../types/customDocument.js';
 import { Contestant, ContestantModel } from '../schemas/contestant.js';
@@ -79,6 +80,28 @@ export const getPointsOfContestantForTournament = async (contestantId: Ref<Conte
     const tournamentChallengeIds = (await getChallengesOfTournament(tournamentId)).map((challenge: ChallengeDocument) => challenge._id);
     const submissions = await SubmissionModel.find().where('contestantID').equals(contestantId).where('challengeID').in(tournamentChallengeIds).exec();
     return getPointSumOfSubmissions(submissions);
+};
+
+/**
+ * This type shares a naming convention with `ResolvedTournament` etc., however note its trimmed-down
+ * nature. This is because of the relative simplicity of the Contestant model and lack of use/need
+ * for `ResolvedContestant` elsewhere.
+ */
+export type ResolvedContestantAndPoints = {
+    _id: ObjectId,
+    userId: string,
+    guildId: string,
+    points: number,
+};
+
+export const getLeaderboard = async (guildId: string, tournament: Ref<Tournament> | string): Promise<ResolvedContestantAndPoints[]> => {
+    const contestants = await ContestantModel.find({ guildID: guildId }).exec() as ContestantDocument[];
+    const leaderboard: ResolvedContestantAndPoints[] = [];
+    for (const contestant of contestants) {
+        const points = await getPointsOfContestantForTournament(contestant, tournament);
+        if (points !== 0) leaderboard.push({ _id: contestant._id, userId: contestant.userID, guildId: contestant.guildID, points: points } as ResolvedContestantAndPoints);
+    }
+    return leaderboard.sort((a, b) => b.points - a.points);
 };
 
 // UPDATE / PUT
