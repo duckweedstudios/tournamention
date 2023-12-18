@@ -45,11 +45,11 @@ type CreateTournamentOutcome = Outcome<T1, T2>;
 interface CreateTournamentSolverParams {
     guildId: string;
     name: string;
-    photoURI: string;
-    visible: boolean;
-    active: boolean;
-    statusDescription: string;
-    duration: string;
+    photoURI?: string | undefined;
+    visible?: boolean | undefined;
+    active?: boolean | undefined;
+    statusDescription?: string | undefined;
+    duration?: string | undefined;
 }
 
 /**
@@ -59,13 +59,18 @@ interface CreateTournamentSolverParams {
  */
 const createTournamentSolver = async (params: CreateTournamentSolverParams): Promise<CreateTournamentOutcome> => {
     try {
+        const photoURI = params.photoURI !== undefined ? params.photoURI : '';
+        const visibility = params.visible !== undefined ? params.visible : true;
+        const active = params.active !== undefined ? params.active : true;
+        const statusDescription = params.statusDescription !== undefined ? params.statusDescription : '';
+        const duration = params.duration !== undefined ? params.duration : '';
         const tournamentBuilder = new TournamentBuilder()
             .setName(params.name)
-            .setPhotoURI(params.photoURI)
-            .setVisibility(params.visible)
-            .setActive(params.active)
-            .setStatusDescription(params.statusDescription)
-            .setDuration(params.duration);
+            .setPhotoURI(photoURI)
+            .setVisibility(visibility)
+            .setActive(active)
+            .setStatusDescription(statusDescription)
+            .setDuration(duration);
         const tournament = await tournamentBuilder.buildForGuild(params.guildId);
         if (!tournament) return {
             status: OutcomeStatus.FAIL_UNKNOWN,
