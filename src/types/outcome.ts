@@ -93,3 +93,14 @@ type PlaceholderOutcome = {
 }
 
 export type Outcome<T, U = void, V = PlaceholderOutcome> = OutcomeWithEmptyBody | OutcomeWithMonoBody<T> | OutcomeWithDuoBody<T> | OutcomeWithDuoListBody<T, U> | OptionValidationErrorOutcome<T> | V;
+
+export type PaginatedOutcome = {
+    pagination: {
+        page: number,
+        totalPages: number,
+    }
+}
+
+export const isPaginatedOutcome = (x: unknown): x is PaginatedOutcome => {
+    return (x as PaginatedOutcome).pagination !== undefined;
+};

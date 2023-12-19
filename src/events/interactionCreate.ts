@@ -1,4 +1,4 @@
-import { BaseInteraction, ChatInputCommandInteraction } from 'discord.js';
+import { BaseInteraction, ButtonInteraction, ChatInputCommandInteraction } from 'discord.js';
 import { TournamentionClient } from '../types/client.js';
 import { CustomEvent } from '../types/customEvent.js';
 
@@ -21,8 +21,14 @@ const interactionCreate = new CustomEvent(
                 interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
             }
         } else if (interaction.isButton()) {
-            // TODO: Adapt code from Condemned Souls bot...
-            return;
+            const button = tournamentionClient.getButton((interaction as ButtonInteraction).customId);
+            try {
+                if (!button) return;
+                button.execute(interaction);
+            } catch (error) {
+                console.error(error);
+                interaction.reply({ content: 'There was an error while pressing this button!', ephemeral: true });
+            }
         }
     }
 );

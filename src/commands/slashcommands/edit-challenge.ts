@@ -11,6 +11,7 @@ import { OptionValidationError, OptionValidationErrorStatus } from '../../types/
 import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
+import config from '../../config.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -130,6 +131,8 @@ const editChallengeSlashCommandValidator = async (interaction: LimitedCommandInt
     const tournament = interaction.options.get('tournament', false);
     const difficulty = interaction.options.get('difficulty', false);
     const newName = interaction.options.get('new-name', false);
+    const game = interaction.options.get('game', false);
+    const description = interaction.options.get('description', false);
 
     const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([
         ['member', [
@@ -179,6 +182,24 @@ const editChallengeSlashCommandValidator = async (interaction: LimitedCommandInt
                 }
             }
         ]],
+        [game, [
+            // Ensure game name is <= 30 characters
+            {
+                category: OptionValidationErrorStatus.OPTION_TOO_LONG,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return (option as string).length <= config.fieldCharacterLimits.game;
+                },
+            },
+        ]],
+        [description, [
+            // Ensure description is <= 300 characters
+            {
+                category: OptionValidationErrorStatus.OPTION_TOO_LONG,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return (option as string).length <= config.fieldCharacterLimits.challengeDescription;
+                },
+            },
+        ]],
         [difficulty, [
             // Ensure that the difficulty exists, if it was provided
             {
@@ -192,6 +213,13 @@ const editChallengeSlashCommandValidator = async (interaction: LimitedCommandInt
             },
         ]],
         [newName, [
+            // Ensure challenge name is <= 40 characters
+            {
+                category: OptionValidationErrorStatus.OPTION_TOO_LONG,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return (option as string).length <= config.fieldCharacterLimits.challengeName;
+                },
+            },
             // Ensure that no challenge exists already with the new name in the tournament
             {
                 category: OptionValidationErrorStatus.OPTION_DUPLICATE,
@@ -205,8 +233,6 @@ const editChallengeSlashCommandValidator = async (interaction: LimitedCommandInt
         ]],
     ]);
 
-    const game = interaction.options.get('game', false)?.value as string;
-    const description = interaction.options.get('description', false)?.value as string;
     const visible = interaction.options.get('visible', false)?.value as boolean;
     try {
         await validateConstraints(interaction, metadataConstraints, optionConstraints);
@@ -228,8 +254,8 @@ const editChallengeSlashCommandValidator = async (interaction: LimitedCommandInt
         guildId: guildId,
         name: name.value as string,
         newName: newName ? newName.value as string : undefined,
-        game: game,
-        description: description,
+        game: game ? game.value as string : undefined,
+        description: description ? description.value as string : undefined,
         visible: visible,
         tournamentName: tournament ? tournament.value as string : undefined,
         difficulty: difficulty ? difficulty.value as string : undefined,
@@ -261,7 +287,15 @@ const editChallengeSlashCommandDescriptions = new Map<EditChallengeStatus, (o: E
         else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DUPLICATE) return ({
             userMessage: `❌ A challenge named **${oBody.value}** already exists in the tournament.`, ephemeral: true,
         });
-        else return ({
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_TOO_LONG) {
+            let characterLimit = -1;
+            if (oBody.field === 'new-name') characterLimit = config.fieldCharacterLimits.challengeName;
+            else if (oBody.field === 'game') characterLimit = config.fieldCharacterLimits.game;
+            else if (oBody.field === 'description') characterLimit = config.fieldCharacterLimits.challengeDescription;
+            return {
+                userMessage: `❌ The ${oBody.field} must be ${characterLimit} characters or less. Please shorten it by ${oBody.value.length - characterLimit}.`, ephemeral: true,
+            };
+        } else return ({
             userMessage: `❌ This command failed due to a validation error.`, ephemeral: true,
         });
     }],
