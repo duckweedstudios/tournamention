@@ -1,4 +1,4 @@
-import { CommandInteractionOption, EmbedBuilder, GuildMember, PermissionsBitField, SlashCommandBuilder } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, CommandInteractionOption, EmbedBuilder, GuildMember, PermissionsBitField, SlashCommandBuilder } from 'discord.js';
 import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
 import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, PaginatedOutcome } from '../../types/outcome.js';
 import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
@@ -12,6 +12,10 @@ import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueri
 import { ChallengeDocument, ResolvedChallenge, ResolvedTournament } from '../../types/customDocument.js';
 import { CachedChallengesInteraction } from '../../types/cachedInteractions.js';
 import { TournamentionClient } from '../../types/client.js';
+import firstButton from '../../buttons/first.js';
+import lastButton from '../../buttons/last.js';
+import nextButton from '../../buttons/next.js';
+import previousButton from '../../buttons/previous.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -34,7 +38,7 @@ enum ChallengesSpecificStatus {
 /**
  * Union of specific and generic status codes.
  */
-type ChallengesStatus = ChallengesSpecificStatus | OutcomeStatus;
+export type ChallengesStatus = ChallengesSpecificStatus | OutcomeStatus;
 
 /**
  * The outcome format for the specific status code(s).
@@ -67,7 +71,7 @@ type ChallengesOutcome = Outcome<T1, T2, ChallengesSpecificOutcome>;
 /**
  * Parameters for the solver function, as well as the "S" generic type.
  */
-interface ChallengesSolverParams {
+export interface ChallengesSolverParams {
     guildId: string;
     judgeView: boolean;
     tournament?: string | undefined;
@@ -76,7 +80,7 @@ interface ChallengesSolverParams {
     page: number;
 }
 
-const challengesSolver = async (params: ChallengesSolverParams): Promise<ChallengesOutcome> => {
+export const challengesSolver = async (params: ChallengesSolverParams): Promise<ChallengesOutcome> => {
     try {
         const client = TournamentionClient.getInstance();
         const guild = (await client).guilds.fetch(params.guildId);
@@ -259,7 +263,7 @@ export const formatChallengesDetails = (gamesAndChallenges: Map<string, Resolved
     return result;
 };
 
-const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: ChallengesOutcome) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>([
+export const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: ChallengesOutcome) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>([
     [ChallengesSpecificStatus.SUCCESS_DETAILS, (o: ChallengesOutcome) => {
         const oBody = (o as ChallengesSuccessDetailsOutcome).body;
         return {
@@ -267,6 +271,15 @@ const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: Challen
                 .setTitle(`Challenges in ${oBody.tournament.name}`)
                 .setDescription(formatChallengesDetails(oBody.gamesAndChallenges))
                 .setThumbnail(oBody.serverDetails.icon)
+                .toJSON()
+            ],
+            components: [new ActionRowBuilder<ButtonBuilder>()
+                .addComponents(
+                    firstButton.getBuilder(),
+                    previousButton.getBuilder(),
+                    nextButton.getBuilder(),
+                    lastButton.getBuilder(),
+                )
                 .toJSON()
             ],
             ephemeral: true,
