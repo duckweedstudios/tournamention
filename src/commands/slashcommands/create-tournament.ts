@@ -10,6 +10,7 @@ import { OptionValidationError, OptionValidationErrorStatus } from '../../types/
 import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { formatTournamentDetails } from './tournaments.js';
+import config from '../../config.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -112,6 +113,13 @@ const createTournamentSlashCommandValidator = async (interaction: LimitedCommand
     ]);
     const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
         [name, [
+            // Ensure tournament name is <= 45 characters
+            {
+                category: OptionValidationErrorStatus.OPTION_TOO_LONG,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return (option as string).length <= config.fieldCharacterLimits.tournamentName;
+                },
+            },
             // Ensure that no other Tournament exists with the same name
             {
                 category: OptionValidationErrorStatus.OPTION_DUPLICATE,

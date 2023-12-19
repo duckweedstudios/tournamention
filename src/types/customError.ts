@@ -53,6 +53,7 @@ export enum OptionValidationErrorStatus {
     OPTION_DNE = 'OPTION_DNE', // option's associated data does not exist
     OPTION_UNDEFAULTABLE = 'OPTION_UNDEFAULTABLE', // optional option not provided and could not be defaulted
     OPTION_DUPLICATE = 'OPTION_DUPLICATE', // option provides a duplicate of existing data
+    OPTION_TOO_LONG = 'OPTION_TOO_LONG', // option provides data that exceeds a length limit
     OPTION_INVALID = 'OPTION_INVALID', // option provides invalid data. Use sparingly when other status codes are inapplicable
 }
 

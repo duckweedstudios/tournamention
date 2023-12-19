@@ -11,6 +11,7 @@ import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
 import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
+import config from '../../config.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -111,6 +112,8 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
     ]);
 
     const challengeName = interaction.options.get('name', true);
+    const game = interaction.options.get('game', true);
+    const description = interaction.options.get('description', true);
     const tournament = interaction.options.get('tournament', false);
     const difficulty = interaction.options.get('difficulty', false);
 
@@ -130,6 +133,13 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
         // Remaining checks have SOME tournament as a precondition, whether the selected or default
         // In-order constraints ensure this is validated first
         [challengeName, [
+            // Ensure challenge name is <= 40 characters
+            {
+                category: OptionValidationErrorStatus.OPTION_TOO_LONG,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return (option as string).length <= config.fieldCharacterLimits.challengeName;
+                },
+            },
             // Ensure that either the specified Tournament exists or there is a current Tournament
             // This constraint hijacks the required option challengeName and does not use its value
             {
@@ -150,6 +160,24 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
                 },
             },
         ]],
+        [game, [
+            // Ensure game name is <= 30 characters
+            {
+                category: OptionValidationErrorStatus.OPTION_TOO_LONG,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return (option as string).length <= config.fieldCharacterLimits.game;
+                },
+            },
+        ]],
+        [description, [
+            // Ensure description is <= 300 characters
+            {
+                category: OptionValidationErrorStatus.OPTION_TOO_LONG,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return (option as string).length <= config.fieldCharacterLimits.challengeDescription;
+                },
+            },
+        ]],
         [difficulty, [
             // Ensure that the difficulty exists, if it was provided
             {
@@ -162,15 +190,10 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
                 }
             },
         ]],
-        
     ]);
 
-    let game: string;
-    let description: string;
     let visible: boolean;
     try {
-        game = interaction.options.get('game', true).value as string;
-        description = interaction.options.get('description', true).value as string;
         visible = interaction.options.get('visible', false)?.value !== undefined ? interaction.options.get('visible', false)?.value as boolean : true;
 
         await validateConstraints(interaction, metadataConstraints, optionConstraints);
@@ -191,8 +214,8 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
     return {
         guildId: guildId,
         challengeName: challengeName.value as string,
-        game: game,
-        description: description,
+        game: game.value as string,
+        description: description.value as string,
         visible: visible,
         tournamentName: tournament ? tournament.value as string : undefined,
         difficulty: difficulty ? difficulty.value as string : undefined,
