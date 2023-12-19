@@ -6,6 +6,7 @@ import example2 from './example2.js';
 import { TournamentionClient } from './types/client.js';
 import { prepareCommands } from './util/commandHandler.js';
 import { prepareEvents } from './util/eventHandler.js';
+import { prepareButtons } from './util/buttonHandler.js';
 
 // Mongoose configuration setting (see https://github.com/Automattic/mongoose/issues/7150)
 mongoose.Schema.Types.String.checkRequired(v => v != null);
@@ -24,6 +25,9 @@ const client = await TournamentionClient.getInstance();
 
 // APPLICATION COMMANDS
 prepareCommands(client);
+
+// BUTTONS
+prepareButtons(client);
 
 // EVENTS
 prepareEvents(client);
