@@ -1,6 +1,5 @@
 import { APIButtonComponentWithCustomId, ButtonBuilder, ButtonInteraction, ButtonStyle } from 'discord.js';
 
-
 class CustomButton {
     private component: APIButtonComponentWithCustomId;
 
