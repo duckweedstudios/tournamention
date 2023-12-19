@@ -10,6 +10,7 @@ import { OptionValidationError, OptionValidationErrorStatus } from '../../types/
 import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { formatTournamentDetails } from './tournaments.js';
+import config from '../../config.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -45,11 +46,11 @@ type CreateTournamentOutcome = Outcome<T1, T2>;
 interface CreateTournamentSolverParams {
     guildId: string;
     name: string;
-    photoURI: string;
-    visible: boolean;
-    active: boolean;
-    statusDescription: string;
-    duration: string;
+    photoURI?: string | undefined;
+    visible?: boolean | undefined;
+    active?: boolean | undefined;
+    statusDescription?: string | undefined;
+    duration?: string | undefined;
 }
 
 /**
@@ -59,13 +60,18 @@ interface CreateTournamentSolverParams {
  */
 const createTournamentSolver = async (params: CreateTournamentSolverParams): Promise<CreateTournamentOutcome> => {
     try {
+        const photoURI = params.photoURI !== undefined ? params.photoURI : '';
+        const visibility = params.visible !== undefined ? params.visible : true;
+        const active = params.active !== undefined ? params.active : true;
+        const statusDescription = params.statusDescription !== undefined ? params.statusDescription : '';
+        const duration = params.duration !== undefined ? params.duration : '';
         const tournamentBuilder = new TournamentBuilder()
             .setName(params.name)
-            .setPhotoURI(params.photoURI)
-            .setVisibility(params.visible)
-            .setActive(params.active)
-            .setStatusDescription(params.statusDescription)
-            .setDuration(params.duration);
+            .setPhotoURI(photoURI)
+            .setVisibility(visibility)
+            .setActive(active)
+            .setStatusDescription(statusDescription)
+            .setDuration(duration);
         const tournament = await tournamentBuilder.buildForGuild(params.guildId);
         if (!tournament) return {
             status: OutcomeStatus.FAIL_UNKNOWN,
@@ -107,6 +113,13 @@ const createTournamentSlashCommandValidator = async (interaction: LimitedCommand
     ]);
     const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
         [name, [
+            // Ensure tournament name is <= 45 characters
+            {
+                category: OptionValidationErrorStatus.OPTION_TOO_LONG,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return (option as string).length <= config.fieldCharacterLimits.tournamentName;
+                },
+            },
             // Ensure that no other Tournament exists with the same name
             {
                 category: OptionValidationErrorStatus.OPTION_DUPLICATE,
@@ -163,7 +176,13 @@ const createTournamentSlashCommandDescriptions = new Map<CreateTournamentStatus,
         else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DUPLICATE) return {
             userMessage: `❌ A tournament with the name **${oBody.value}** already exists.`, ephemeral: true
         };
-        else return {
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_TOO_LONG) {
+            let characterLimit = -1;
+            if (oBody.field === 'name') characterLimit = config.fieldCharacterLimits.tournamentName;
+            return {
+                userMessage: `❌ The ${oBody.field} must be ${characterLimit} characters or less.`, ephemeral: true,
+            };
+        } else return {
             userMessage: `❌ This command failed unexpectedly due to a validation error.`, ephemeral: true
         };
     }],

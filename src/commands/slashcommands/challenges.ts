@@ -1,16 +1,21 @@
-import { CommandInteractionOption, EmbedBuilder, GuildMember, PermissionsBitField, SlashCommandBuilder } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, CommandInteractionOption, EmbedBuilder, GuildMember, PermissionsBitField, SlashCommandBuilder } from 'discord.js';
 import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
-import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../../types/outcome.js';
+import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, PaginatedOutcome } from '../../types/outcome.js';
 import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints, ALWAYS_OPTION_CONSTRAINT } from '../architecture/validation.js';
 import { getDifficultyByEmoji, getTournamentByName } from '../../backend/queries/tournamentQueries.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
-import { getChallengesOfTournament, getChallengesOfTournamentByDifficulty, getChallengesOfTournamentByGame } from '../../backend/queries/challengeQueries.js';
+import { getChallengesOfTournamentByDifficulty, getChallengesOfTournamentByGame, getChallengesOfTournamentByGamePaged, getChallengesOfTournamentPaged } from '../../backend/queries/challengeQueries.js';
 import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
 import { ChallengeDocument, ResolvedChallenge, ResolvedTournament } from '../../types/customDocument.js';
+import { CachedChallengesInteraction } from '../../types/cachedInteractions.js';
 import { TournamentionClient } from '../../types/client.js';
+import firstButton from '../../buttons/first.js';
+import lastButton from '../../buttons/last.js';
+import nextButton from '../../buttons/next.js';
+import previousButton from '../../buttons/previous.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -33,12 +38,12 @@ enum ChallengesSpecificStatus {
 /**
  * Union of specific and generic status codes.
  */
-type ChallengesStatus = ChallengesSpecificStatus | OutcomeStatus;
+export type ChallengesStatus = ChallengesSpecificStatus | OutcomeStatus;
 
 /**
  * The outcome format for the specific status code(s).
  */
-type ChallengesSuccessDetailsOutcome = {
+type ChallengesSuccessDetailsOutcome = PaginatedOutcome & {
     status: ChallengesSpecificStatus.SUCCESS_DETAILS;
     body: {
         gamesAndChallenges: Map<string, ResolvedChallenge[]>;
@@ -66,19 +71,21 @@ type ChallengesOutcome = Outcome<T1, T2, ChallengesSpecificOutcome>;
 /**
  * Parameters for the solver function, as well as the "S" generic type.
  */
-interface ChallengesSolverParams {
+export interface ChallengesSolverParams {
     guildId: string;
     judgeView: boolean;
     tournament?: string | undefined;
     game?: string | undefined;
     difficulty?: string | undefined;
+    page: number;
 }
 
-const challengesSolver = async (params: ChallengesSolverParams): Promise<ChallengesOutcome> => {
+export const challengesSolver = async (params: ChallengesSolverParams): Promise<ChallengesOutcome> => {
     try {
-        const guild = (await TournamentionClient.getInstance()).guilds.fetch(params.guildId);
+        const client = TournamentionClient.getInstance();
+        const guild = (await client).guilds.fetch(params.guildId);
         const tournamentDocument = params.tournament ? await getTournamentByName(params.guildId, params.tournament) : await getCurrentTournament(params.guildId);
-        const challenges = params.game ? await getChallengesOfTournamentByGame(tournamentDocument!, params.game!) : await getChallengesOfTournament(tournamentDocument!);
+        const { challenges, totalPages } = params.game ? await getChallengesOfTournamentByGamePaged(tournamentDocument!, params.game!, params.page) : await getChallengesOfTournamentPaged(tournamentDocument!, params.page);
         const difficultyDocument = params.difficulty ? await getDifficultyByEmoji(tournamentDocument!, params.difficulty) : null;
 
         // Cases where no challenges were found for the one or two filters should be caught by the validation step
@@ -126,8 +133,13 @@ const challengesSolver = async (params: ChallengesSolverParams): Promise<Challen
                 gamesAndChallenges,
                 tournament: await new ResolvedTournament(tournamentDocument!).make(),
                 serverDetails,
+                totalPages,
             },
-        };
+            pagination: {
+                page: params.page,
+                totalPages,
+            }
+        } as ChallengesSuccessDetailsOutcome;
     } catch (err) {
         // No expected thrown errors
     }
@@ -231,6 +243,7 @@ const challengesSlashCommandValidator = async (interaction: LimitedCommandIntera
         tournament: tournament?.value as string | undefined,
         game: game?.value as string | undefined,
         difficulty: difficulty?.value as string | undefined,
+        page: 0,
     };
 };
 
@@ -251,9 +264,26 @@ export const formatChallengesDetails = (gamesAndChallenges: Map<string, Resolved
     return result;
 };
 
-const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: ChallengesOutcome) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>([
+export const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: ChallengesOutcome) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>([
     [ChallengesSpecificStatus.SUCCESS_DETAILS, (o: ChallengesOutcome) => {
         const oBody = (o as ChallengesSuccessDetailsOutcome).body;
+        const components = [new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(
+                firstButton.getBuilder(),
+                previousButton.getBuilder(),
+                nextButton.getBuilder(),
+                lastButton.getBuilder(),
+            )
+            .toJSON()
+        ];
+        // Disable the last and previous buttons intially when on the first page
+        const currentPage = (o as PaginatedOutcome).pagination.page;
+        components[0].components[0].disabled = currentPage === 0;
+        components[0].components[1].disabled = currentPage === 0;
+        // Disable the first and next buttons intially when on the last page
+        const totalPages = (o as PaginatedOutcome).pagination.totalPages;
+        components[0].components[2].disabled = currentPage === totalPages - 1;
+        components[0].components[3].disabled = currentPage === totalPages - 1;
         return {
             embeds: [new EmbedBuilder()
                 .setTitle(`Challenges in ${oBody.tournament.name}`)
@@ -261,6 +291,7 @@ const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: Challen
                 .setThumbnail(oBody.serverDetails.icon)
                 .toJSON()
             ],
+            components, 
             ephemeral: true,
         } as SlashCommandEmbedDescribedOutcome;
     }],
@@ -291,7 +322,7 @@ const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: Challen
     })],
 ]);
 
-const ChallengesCommand = new SimpleRendezvousSlashCommand<ChallengesOutcome, ChallengesSolverParams, T1, ChallengesStatus>(
+const ChallengesCommand = new SimpleRendezvousSlashCommand<ChallengesOutcome, ChallengesSolverParams, T1, ChallengesStatus, typeof CachedChallengesInteraction.cacheParams>(
     new SlashCommandBuilder()
         .setName('challenges')
         .setDescription('Show the challenges posted for a tournament.')
@@ -302,6 +333,7 @@ const ChallengesCommand = new SimpleRendezvousSlashCommand<ChallengesOutcome, Ch
     challengesSlashCommandDescriptions,
     challengesSlashCommandValidator,
     challengesSolver,
+    CachedChallengesInteraction.cache,
 );
 
 export default ChallengesCommand;

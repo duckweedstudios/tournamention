@@ -10,6 +10,7 @@ import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { formatTournamentDetails } from './tournaments.js';
 import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
+import config from '../../config.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -126,6 +127,13 @@ const editTournamentSlashCommandValidator = async (interaction: LimitedCommandIn
             }
         ]],
         [newName, [
+            // Ensure tournament name is <= 45 characters
+            {
+                category: OptionValidationErrorStatus.OPTION_TOO_LONG,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return (option as string).length <= config.fieldCharacterLimits.tournamentName;
+                },
+            },
             // Ensure that no other Tournament exists with the same name
             {
                 category: OptionValidationErrorStatus.OPTION_DUPLICATE,
@@ -189,7 +197,13 @@ const editTournamentSlashCommandDescriptions = new Map<EditTournamentStatus, (o:
         if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DUPLICATE) return {
             userMessage: `❌ A tournament with the name **${oBody.value}** already exists.`, ephemeral: true
         };
-        else return {
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_TOO_LONG) {
+            let characterLimit = -1;
+            if (oBody.field === 'new-name') characterLimit = config.fieldCharacterLimits.tournamentName;
+            return {
+                userMessage: `❌ The ${oBody.field} must be ${characterLimit} characters or less.`, ephemeral: true,
+            };
+        } else return {
             userMessage: `❌ This command failed unexpectedly due to a validation error.`, ephemeral: true
         };
     }],
