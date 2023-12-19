@@ -287,7 +287,15 @@ const editChallengeSlashCommandDescriptions = new Map<EditChallengeStatus, (o: E
         else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DUPLICATE) return ({
             userMessage: `❌ A challenge named **${oBody.value}** already exists in the tournament.`, ephemeral: true,
         });
-        else return ({
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_TOO_LONG) {
+            let characterLimit = -1;
+            if (oBody.field === 'new-name') characterLimit = config.fieldCharacterLimits.challengeName;
+            else if (oBody.field === 'game') characterLimit = config.fieldCharacterLimits.game;
+            else if (oBody.field === 'description') characterLimit = config.fieldCharacterLimits.challengeDescription;
+            return {
+                userMessage: `❌ The ${oBody.field} must be ${characterLimit} characters or less. Please shorten it by ${oBody.value.length - characterLimit}.`, ephemeral: true,
+            };
+        } else return ({
             userMessage: `❌ This command failed due to a validation error.`, ephemeral: true,
         });
     }],

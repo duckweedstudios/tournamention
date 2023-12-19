@@ -176,7 +176,13 @@ const createTournamentSlashCommandDescriptions = new Map<CreateTournamentStatus,
         else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_DUPLICATE) return {
             userMessage: `❌ A tournament with the name **${oBody.value}** already exists.`, ephemeral: true
         };
-        else return {
+        else if (oBody.constraint.category === OptionValidationErrorStatus.OPTION_TOO_LONG) {
+            let characterLimit = -1;
+            if (oBody.field === 'name') characterLimit = config.fieldCharacterLimits.tournamentName;
+            return {
+                userMessage: `❌ The ${oBody.field} must be ${characterLimit} characters or less.`, ephemeral: true,
+            };
+        } else return {
             userMessage: `❌ This command failed unexpectedly due to a validation error.`, ephemeral: true
         };
     }],
