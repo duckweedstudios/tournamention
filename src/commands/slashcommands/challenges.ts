@@ -136,6 +136,7 @@ export const challengesSolver = async (params: ChallengesSolverParams): Promise<
                 totalPages,
             },
             pagination: {
+                page: params.page,
                 totalPages,
             }
         } as ChallengesSuccessDetailsOutcome;
@@ -266,6 +267,23 @@ export const formatChallengesDetails = (gamesAndChallenges: Map<string, Resolved
 export const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: ChallengesOutcome) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>([
     [ChallengesSpecificStatus.SUCCESS_DETAILS, (o: ChallengesOutcome) => {
         const oBody = (o as ChallengesSuccessDetailsOutcome).body;
+        const components = [new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(
+                firstButton.getBuilder(),
+                previousButton.getBuilder(),
+                nextButton.getBuilder(),
+                lastButton.getBuilder(),
+            )
+            .toJSON()
+        ];
+        // Disable the last and previous buttons intially when on the first page
+        const currentPage = (o as PaginatedOutcome).pagination.page;
+        components[0].components[0].disabled = currentPage === 0;
+        components[0].components[1].disabled = currentPage === 0;
+        // Disable the first and next buttons intially when on the last page
+        const totalPages = (o as PaginatedOutcome).pagination.totalPages;
+        components[0].components[2].disabled = currentPage === totalPages - 1;
+        components[0].components[3].disabled = currentPage === totalPages - 1;
         return {
             embeds: [new EmbedBuilder()
                 .setTitle(`Challenges in ${oBody.tournament.name}`)
@@ -273,15 +291,7 @@ export const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: 
                 .setThumbnail(oBody.serverDetails.icon)
                 .toJSON()
             ],
-            components: [new ActionRowBuilder<ButtonBuilder>()
-                .addComponents(
-                    firstButton.getBuilder(),
-                    previousButton.getBuilder(),
-                    nextButton.getBuilder(),
-                    lastButton.getBuilder(),
-                )
-                .toJSON()
-            ],
+            components, 
             ephemeral: true,
         } as SlashCommandEmbedDescribedOutcome;
     }],

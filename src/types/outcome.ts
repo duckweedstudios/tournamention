@@ -96,6 +96,7 @@ export type Outcome<T, U = void, V = PlaceholderOutcome> = OutcomeWithEmptyBody 
 
 export type PaginatedOutcome = {
     pagination: {
+        page: number,
         totalPages: number,
     }
 }
