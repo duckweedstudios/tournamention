@@ -1,4 +1,4 @@
-import { Client, Collection, GatewayIntentBits } from 'discord.js';
+import { Client, Collection, GatewayIntentBits, Snowflake } from 'discord.js';
 import { RendezvousSlashCommand } from '../commands/architecture/rendezvousCommand.js';
 import { OutcomeTypeConstraint } from './outcome.js';
 import config from '../config.js';
