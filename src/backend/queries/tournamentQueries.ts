@@ -112,10 +112,12 @@ export const getTournamentByName = async (guildID: string, name: string): Promis
     return TournamentModel.findOne({ guildID: guildID, name: name });
 };
 
+const explicitSupportedEmojis = ['2️⃣', '3️⃣', '4️⃣', '5️⃣'];
+
 export const isSingleEmoji = (emoji: string): boolean => {
     const emojiRegex = /\p{Emoji_Presentation}/ug;
     const matches = emoji.match(emojiRegex);
-    return matches !== null && matches.length === 1;
+    return (matches !== null && matches.length === 1) || explicitSupportedEmojis.includes(emoji);
 };
 
 export const getDifficultyByID = async (id: Ref<Difficulty> | string): Promise<DifficultyDocument | null> => {
