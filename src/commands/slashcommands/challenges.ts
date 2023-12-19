@@ -1,15 +1,16 @@
 import { CommandInteractionOption, EmbedBuilder, GuildMember, PermissionsBitField, SlashCommandBuilder } from 'discord.js';
 import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
-import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../../types/outcome.js';
+import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, PaginatedOutcome } from '../../types/outcome.js';
 import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints, ALWAYS_OPTION_CONSTRAINT } from '../architecture/validation.js';
 import { getDifficultyByEmoji, getTournamentByName } from '../../backend/queries/tournamentQueries.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
-import { getChallengesOfTournament, getChallengesOfTournamentByDifficulty, getChallengesOfTournamentByGame } from '../../backend/queries/challengeQueries.js';
+import { getChallengesOfTournamentByDifficulty, getChallengesOfTournamentByGame, getChallengesOfTournamentByGamePaged, getChallengesOfTournamentPaged } from '../../backend/queries/challengeQueries.js';
 import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
 import { ChallengeDocument, ResolvedChallenge, ResolvedTournament } from '../../types/customDocument.js';
+import { CachedChallengesInteraction } from '../../types/cachedInteractions.js';
 import { TournamentionClient } from '../../types/client.js';
 
 /**
@@ -38,7 +39,7 @@ type ChallengesStatus = ChallengesSpecificStatus | OutcomeStatus;
 /**
  * The outcome format for the specific status code(s).
  */
-type ChallengesSuccessDetailsOutcome = {
+type ChallengesSuccessDetailsOutcome = PaginatedOutcome & {
     status: ChallengesSpecificStatus.SUCCESS_DETAILS;
     body: {
         gamesAndChallenges: Map<string, ResolvedChallenge[]>;
@@ -72,13 +73,15 @@ interface ChallengesSolverParams {
     tournament?: string | undefined;
     game?: string | undefined;
     difficulty?: string | undefined;
+    page: number;
 }
 
 const challengesSolver = async (params: ChallengesSolverParams): Promise<ChallengesOutcome> => {
     try {
-        const guild = (await TournamentionClient.getInstance()).guilds.fetch(params.guildId);
+        const client = TournamentionClient.getInstance();
+        const guild = (await client).guilds.fetch(params.guildId);
         const tournamentDocument = params.tournament ? await getTournamentByName(params.guildId, params.tournament) : await getCurrentTournament(params.guildId);
-        const challenges = params.game ? await getChallengesOfTournamentByGame(tournamentDocument!, params.game!) : await getChallengesOfTournament(tournamentDocument!);
+        const { challenges, totalPages } = params.game ? await getChallengesOfTournamentByGamePaged(tournamentDocument!, params.game!, params.page) : await getChallengesOfTournamentPaged(tournamentDocument!, params.page);
         const difficultyDocument = params.difficulty ? await getDifficultyByEmoji(tournamentDocument!, params.difficulty) : null;
 
         // Cases where no challenges were found for the one or two filters should be caught by the validation step
@@ -126,8 +129,12 @@ const challengesSolver = async (params: ChallengesSolverParams): Promise<Challen
                 gamesAndChallenges,
                 tournament: await new ResolvedTournament(tournamentDocument!).make(),
                 serverDetails,
+                totalPages,
             },
-        };
+            pagination: {
+                totalPages,
+            }
+        } as ChallengesSuccessDetailsOutcome;
     } catch (err) {
         // No expected thrown errors
     }
@@ -231,6 +238,7 @@ const challengesSlashCommandValidator = async (interaction: LimitedCommandIntera
         tournament: tournament?.value as string | undefined,
         game: game?.value as string | undefined,
         difficulty: difficulty?.value as string | undefined,
+        page: 0,
     };
 };
 
@@ -291,7 +299,7 @@ const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: Challen
     })],
 ]);
 
-const ChallengesCommand = new SimpleRendezvousSlashCommand<ChallengesOutcome, ChallengesSolverParams, T1, ChallengesStatus>(
+const ChallengesCommand = new SimpleRendezvousSlashCommand<ChallengesOutcome, ChallengesSolverParams, T1, ChallengesStatus, typeof CachedChallengesInteraction.cacheParams>(
     new SlashCommandBuilder()
         .setName('challenges')
         .setDescription('Show the challenges posted for a tournament.')
@@ -302,6 +310,7 @@ const ChallengesCommand = new SimpleRendezvousSlashCommand<ChallengesOutcome, Ch
     challengesSlashCommandDescriptions,
     challengesSlashCommandValidator,
     challengesSolver,
+    CachedChallengesInteraction.cache,
 );
 
 export default ChallengesCommand;
