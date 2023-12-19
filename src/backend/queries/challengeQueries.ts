@@ -5,6 +5,7 @@ import { UpdateChallengeParams } from '../../types/apiPayloadObjects.js';
 import { Ref } from '@typegoose/typegoose';
 import { Tournament, TournamentModel } from '../schemas/tournament.js';
 import { Difficulty } from '../schemas/difficulty.js';
+import config from '../../config.js';
 // CREATE / POST
 
 // READ / GET
@@ -24,9 +25,41 @@ export const getChallengesOfTournament = async (tournamentId: Ref<Tournament> | 
     return ChallengeModel.find().where('_id').in(tournament!.challenges).exec();
 };
 
+type ChallengesAndPageCount = {
+    challenges: ChallengeDocument[];
+    totalPages: number;
+}
+
+export const getChallengesOfTournamentPaged = async (tournamentId: Ref<Tournament> | string, page: number): Promise<ChallengesAndPageCount> => {
+    const pageLimit = config.pagination.challengesPerPage;
+    const tournament = await TournamentModel.findById(tournamentId);
+    const query = ChallengeModel
+        .find()
+        .where('_id').in(tournament!.challenges)
+        .sort({ name: 1, difficulty: 1, _id: 1});
+    const countQuery = query.clone().countDocuments();
+    const totalPages = Math.ceil(await (countQuery.countDocuments().exec()) / pageLimit);
+    const challenges = await query.skip(page * pageLimit).limit(pageLimit).exec();
+    return { challenges, totalPages };
+};
+
 export const getChallengesOfTournamentByGame = async (tournamentId: Ref<Tournament> | string, game: string): Promise<ChallengeDocument[]> => {
     const tournament = await TournamentModel.findById(tournamentId);
     return ChallengeModel.find().where('_id').in(tournament!.challenges).where('game').equals(game).exec();
+};
+
+export const getChallengesOfTournamentByGamePaged = async (tournamentId: Ref<Tournament> | string, game: string, page: number): Promise<ChallengesAndPageCount> => {
+    const pageLimit = config.pagination.challengesPerPage;
+    const tournament = await TournamentModel.findById(tournamentId);
+    const query = ChallengeModel
+        .find()
+        .where('_id').in(tournament!.challenges)
+        .where('game').equals(game)
+        .sort({ name: 1, difficulty: 1, _id: 1});
+    const countQuery = query.clone().countDocuments();
+    const totalPages = Math.ceil(await (countQuery.countDocuments().exec()) / pageLimit);
+    const challenges = await query.skip(page * pageLimit).limit(pageLimit).exec();
+    return { challenges, totalPages };
 };
 
 export const getChallengesOfTournamentByDifficulty = async (tournamentId: Ref<Tournament> | string, difficulty: Ref<Difficulty> | string): Promise<ChallengeDocument[]> => {
