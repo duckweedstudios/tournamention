@@ -14,6 +14,9 @@ mongoose.Schema.Types.String.checkRequired(v => v != null);
 // Database connection
 mongoose.connect(process.env.DB_URI as string, {
     dbName: 'tournamentionDB',
+    // Login to user/pass authenticated database
+    user: process.env.DB_USER,
+    pass: process.env.DB_PASS,
 })
     .then(() => {
         console.log('Database connection established');
