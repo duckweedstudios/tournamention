@@ -9,6 +9,7 @@ const config = {
         'challengeDescription': 300,
         'game': 30,
         'tournamentName': 45,
+        'proofLink': 200,
     },
     'pagination': {
         'challengesPerPage': 10,
