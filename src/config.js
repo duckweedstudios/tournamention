@@ -13,6 +13,7 @@ const config = {
     },
     'pagination': {
         'challengesPerPage': 10,
+        'pendingSubmissionsPerPage': 14,
     }
 };
 
