@@ -1,3 +1,4 @@
+![tournamention-wide](https://github.com/duckweedstudios/tournamention/assets/57969507/131439c2-cb2c-4eea-b3fb-3166dab6cc6e)
 # tournamention
 Organize and run your own gaming challenges for friends to complete with this Discord.js bot.
 
