@@ -69,7 +69,7 @@ export type PendingSubmissionsOutcome = Outcome<T1, T2, PendingSubmissionsSpecif
  * The object defining parameter for the solver function, as well as the "S" generic type,
  * are defined externally to prevent circular dependencies.
  */
-export interface PendingSubmissionsIntrinsicSolverParams {
+interface PendingSubmissionsIntrinsicSolverParams {
     guildId: string;
     tournament?: string | undefined;
 }
