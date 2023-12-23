@@ -61,8 +61,7 @@ export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, C ex
         if (isEmbedDescribedOutcome(describedOutcome)) {
             await interaction.editReply({ embeds: describedOutcome.embeds, components: describedOutcome.components });
             return;
-        }
-        else return interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
+        } else return interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
     }
 }
 
