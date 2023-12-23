@@ -8,7 +8,7 @@ import { getTournamentByName } from '../../backend/queries/tournamentQueries.js'
 import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
 import { CachedPendingSubmissionsInteraction } from '../../types/cachedInteractions.js';
-import { PendingSubmissionsOutcome, PendingSubmissionsSolverParams, PendingSubmissionsStatus, T1, pendingSubmissionsSlashCommandDescriptions, pendingSubmissionsSolver } from './pending-submissions/exports.js';
+import { PendingSubmissionsOutcome, PendingSubmissionsSolverParams, PendingSubmissionsStatus, T1, pendingSubmissionsSlashCommandDescriptions, pendingSubmissionsSolver } from './pending-submissions/pending-submissions-exports.js';
 
 
 const pendingSubmissionsSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<PendingSubmissionsSolverParams | OptionValidationErrorOutcome<T1>> => {

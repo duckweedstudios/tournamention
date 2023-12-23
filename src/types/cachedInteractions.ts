@@ -4,7 +4,7 @@ import { TournamentionClient } from './client.js';
 import { defaultSlashCommandDescriptions } from './defaultSlashCommandDescriptions.js';
 import { SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, Outcome, OutcomeStatus } from './outcome.js';
 import { PaginatedSolverParams } from './paginatedSolverParams.js';
-import { PendingSubmissionsSolverParams, PendingSubmissionsStatus, pendingSubmissionsSlashCommandDescriptions, pendingSubmissionsSolver } from '../commands/slashcommands/pending-submissions/exports.js';
+import { PendingSubmissionsSolverParams, PendingSubmissionsStatus, pendingSubmissionsSlashCommandDescriptions, pendingSubmissionsSolver } from '../commands/slashcommands/pending-submissions/pending-submissions-exports.js';
 
 enum CachedInteractionType {
     DEFAULT = 'DEFAULT',
