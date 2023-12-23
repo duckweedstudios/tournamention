@@ -16,6 +16,7 @@ import firstButton from '../../buttons/first.js';
 import lastButton from '../../buttons/last.js';
 import nextButton from '../../buttons/next.js';
 import previousButton from '../../buttons/previous.js';
+import { PaginatedSolverParams } from '../../types/paginatedSolverParams.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -71,14 +72,15 @@ type ChallengesOutcome = Outcome<T1, T2, ChallengesSpecificOutcome>;
 /**
  * Parameters for the solver function, as well as the "S" generic type.
  */
-export interface ChallengesSolverParams {
+interface ChallengesIntrinsicSolverParams {
     guildId: string;
     judgeView: boolean;
     tournament?: string | undefined;
     game?: string | undefined;
     difficulty?: string | undefined;
-    page: number;
 }
+
+export type ChallengesSolverParams = ChallengesIntrinsicSolverParams & PaginatedSolverParams;
 
 export const challengesSolver = async (params: ChallengesSolverParams): Promise<ChallengesOutcome> => {
     try {
