@@ -56,8 +56,12 @@ export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, C ex
         }
     }
 
-    public static async simpleReplyer(interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome): Promise<InteractionResponse> {
-        if (isEmbedDescribedOutcome(describedOutcome)) return interaction.reply({ embeds: describedOutcome.embeds, components: describedOutcome.components, ephemeral: describedOutcome.ephemeral });
+    public static async simpleReplyer(interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome): Promise<InteractionResponse | void> {
+        if (isEmbedDescribedOutcome(describedOutcome)) await interaction.deferReply({ ephemeral: describedOutcome.ephemeral });
+        if (isEmbedDescribedOutcome(describedOutcome)) {
+            await interaction.editReply({ embeds: describedOutcome.embeds, components: describedOutcome.components });
+            return;
+        }
         else return interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
     }
 }
