@@ -32,6 +32,8 @@ export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, C ex
     }
 
     public async execute(interaction: CommandInteraction) {
+        // Temporary fix for slow leaderboard command response (#103)
+        if (interaction.commandName === 'leaderboard') await interaction.deferReply({ ephemeral: true });
         // Preprocessing step: remove unneeded properties from the interaction
         const limitedCommandInteraction = limitCommandInteraction(interaction);
         // Validator step
@@ -57,10 +59,12 @@ export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, C ex
     }
 
     public static async simpleReplyer(interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome): Promise<InteractionResponse | void> {
-        if (isEmbedDescribedOutcome(describedOutcome)) await interaction.deferReply({ ephemeral: describedOutcome.ephemeral });
         if (isEmbedDescribedOutcome(describedOutcome)) {
-            await interaction.editReply({ embeds: describedOutcome.embeds, components: describedOutcome.components });
-            return;
+            if (interaction.deferred) {
+                await interaction.editReply({ embeds: describedOutcome.embeds, components: describedOutcome.components });
+            } else {
+                await interaction.reply({ embeds: describedOutcome.embeds, components: describedOutcome.components, ephemeral: describedOutcome.ephemeral });
+            }
         } else return interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
     }
 }
