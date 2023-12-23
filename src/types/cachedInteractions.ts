@@ -5,7 +5,9 @@ import { defaultSlashCommandDescriptions } from './defaultSlashCommandDescriptio
 import { SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, Outcome, OutcomeStatus } from './outcome.js';
 
 enum CachedInteractionType {
-    Challenges = 'CHALLENGES',
+    DEFAULT = 'DEFAULT',
+    CHALLENGES = 'CHALLENGES',
+    PENDING_SUBMISSIONS = 'PENDING_SUBMISSIONS',
 }
 
 type BaseCacheParams = {
@@ -22,19 +24,60 @@ export interface CachedInteraction {
     messageId: Snowflake;
     senderId: string;
     type: CachedInteractionType;
+    totalPages: number;
+    solveAgainAndDescribe(page: number): Promise<SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>;
 }
 
-export class CachedChallengesInteraction implements CachedInteraction {
-    public type: CachedInteractionType = CachedInteractionType.Challenges;
+export class Cacher {
+    constructor(
+        public readonly solverParams: PaginatedSolverParams,
+    ) {
+        this.solverParams = solverParams;
+    }
+
+    public setPage(page: number): void {
+        this.solverParams.page = page;
+    }
+}
+
+/**
+ * A class meant to be used for type-matching only.
+ */
+export class CacherCachedInteraction extends Cacher implements CachedInteraction {
+    public type: CachedInteractionType = CachedInteractionType.DEFAULT;
     constructor(
         public readonly messageId: Snowflake,
         public readonly senderId: string,
-        public readonly solverParams: ChallengesSolverParams,
+        solverParams: PaginatedSolverParams, 
         public readonly totalPages: number,
     ) {
+        super(solverParams);
         this.messageId = messageId;
         this.senderId = senderId;
-        this.solverParams = solverParams;
+        this.totalPages = totalPages;
+    }
+
+    public setPage(_page: number): void {
+        throw new Error(`Error in cachedInteractions.ts: CacherCachedInteraction is a type-matching class only and setPage() should not be called on it.`);
+    }
+
+    public async solveAgainAndDescribe(_page: number): Promise<SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome> {
+        throw new Error(`Error in cachedInteractions.ts: CacherCachedInteraction is a type-matching class only and solveAgainAndDescribe() should not be called on it.`);
+    }
+}
+
+export class CachedChallengesInteraction extends Cacher implements CachedInteraction {
+    public type: CachedInteractionType = CachedInteractionType.CHALLENGES;
+    constructor(
+        public readonly messageId: Snowflake,
+        public readonly senderId: string,
+        solverParams: ChallengesSolverParams,
+        public readonly totalPages: number,
+    ) {
+        super(solverParams);
+        this.messageId = messageId;
+        this.senderId = senderId;
+        this.totalPages = totalPages;
     }
 
     public setPage(page: number): void {
@@ -42,7 +85,7 @@ export class CachedChallengesInteraction implements CachedInteraction {
     }
 
     public async solveAgainAndDescribe(page: number): Promise<SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome> {
-        const outcome = await challengesSolver({ ...this.solverParams, page });
+        const outcome = await challengesSolver({ ...(this.solverParams as ChallengesSolverParams), page });
         if (challengesSlashCommandDescriptions.has(outcome.status as ChallengesStatus)) return challengesSlashCommandDescriptions.get(outcome.status as ChallengesStatus)!(outcome);
         // Fallback to trying default descriptions
         const defaultOutcome = outcome as unknown as Outcome<string>;
