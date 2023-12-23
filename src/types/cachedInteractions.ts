@@ -3,6 +3,8 @@ import { ChallengesSolverParams, challengesSolver, challengesSlashCommandDescrip
 import { TournamentionClient } from './client.js';
 import { defaultSlashCommandDescriptions } from './defaultSlashCommandDescriptions.js';
 import { SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, Outcome, OutcomeStatus } from './outcome.js';
+import { PaginatedSolverParams } from './paginatedSolverParams.js';
+import { PendingSubmissionsSolverParams, PendingSubmissionsStatus, pendingSubmissionsSlashCommandDescriptions, pendingSubmissionsSolver } from '../commands/slashcommands/pending-submissions/exports.js';
 
 enum CachedInteractionType {
     DEFAULT = 'DEFAULT',
@@ -101,6 +103,45 @@ export class CachedChallengesInteraction extends Cacher implements CachedInterac
     public static async cache(cacheParams: typeof CachedChallengesInteraction.cacheParams): Promise<void> {
         const { client, messageId, senderId, solverParams } = cacheParams;
         const interaction = new CachedChallengesInteraction(messageId, senderId, solverParams, cacheParams.totalPages);
+        client.cacheInteraction(messageId, interaction);
+    }
+}
+
+export class CachedPendingSubmissionsInteraction extends Cacher implements CachedInteraction {
+    public type: CachedInteractionType = CachedInteractionType.PENDING_SUBMISSIONS;
+    constructor(
+        public readonly messageId: Snowflake,
+        public readonly senderId: string,
+        solverParams: PendingSubmissionsSolverParams,
+        public readonly totalPages: number,
+    ) {
+        super(solverParams);
+        this.messageId = messageId;
+        this.senderId = senderId;
+        this.totalPages = totalPages;
+    }
+
+    public setPage(page: number): void {
+        this.solverParams.page = page;
+    }
+
+    public async solveAgainAndDescribe(page: number): Promise<SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome> {
+        const outcome = await pendingSubmissionsSolver({ ...(this.solverParams as PendingSubmissionsSolverParams), page });
+        if (pendingSubmissionsSlashCommandDescriptions.has(outcome.status as PendingSubmissionsStatus)) return pendingSubmissionsSlashCommandDescriptions.get(outcome.status as PendingSubmissionsStatus)!(outcome);
+        // Fallback to trying default descriptions
+        const defaultOutcome = outcome as unknown as Outcome<string>;
+        if (defaultSlashCommandDescriptions.has(defaultOutcome.status)) {
+            return defaultSlashCommandDescriptions.get(defaultOutcome.status)!(defaultOutcome);
+        } else return defaultSlashCommandDescriptions.get(OutcomeStatus.FAIL_UNKNOWN)!(defaultOutcome);
+    }
+
+    public static readonly cacheParams: PaginatedCacheParams & {
+        solverParams: PendingSubmissionsSolverParams;
+    };
+
+    public static async cache(cacheParams: typeof CachedPendingSubmissionsInteraction.cacheParams): Promise<void> {
+        const { client, messageId, senderId, solverParams } = cacheParams;
+        const interaction = new CachedPendingSubmissionsInteraction(messageId, senderId, solverParams, cacheParams.totalPages);
         client.cacheInteraction(messageId, interaction);
     }
 }

@@ -1,0 +1,76 @@
+import { CommandInteractionOption, SlashCommandBuilder } from 'discord.js';
+import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { OutcomeStatus, OptionValidationErrorOutcome } from '../../types/outcome.js';
+import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
+import { ValueOf } from '../../types/typelogic.js';
+import { Constraint, validateConstraints, ALWAYS_OPTION_CONSTRAINT } from '../architecture/validation.js';
+import { getTournamentByName } from '../../backend/queries/tournamentQueries.js';
+import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
+import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
+import { CachedPendingSubmissionsInteraction } from '../../types/cachedInteractions.js';
+import { PendingSubmissionsOutcome, PendingSubmissionsSolverParams, PendingSubmissionsStatus, T1, pendingSubmissionsSlashCommandDescriptions, pendingSubmissionsSolver } from './pending-submissions/exports.js';
+
+
+const pendingSubmissionsSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<PendingSubmissionsSolverParams | OptionValidationErrorOutcome<T1>> => {
+    const guildId = interaction.guildId!;
+    const tournament = interaction.options.get('tournament', false);
+    
+    const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([]);
+    const optionConstraints = new Map<CommandInteractionOption | null | ALWAYS_OPTION_CONSTRAINT, Constraint<ValueOf<CommandInteractionOption>>[]>([
+        [tournament, [
+            // Ensure that the tournament exists, if it was provided
+            {
+                category: OptionValidationErrorStatus.OPTION_DNE,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = await getTournamentByName(guildId, option as string);
+                    return tournamentDocument !== null;
+                }
+            },
+        ]],
+        ['ALWAYS_OPTION_CONSTRAINT', [
+            // Ensure that either the specified Tournament exists (seemingly redundantly) or there is a current Tournament
+            {
+                category: OptionValidationErrorStatus.OPTION_UNDEFAULTABLE,
+                func: async function(_: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
+                    return tournamentDocument !== null;
+                },
+            },
+        ]],
+    ]);
+
+    try {
+        await validateConstraints(interaction, metadataConstraints, optionConstraints);
+    } catch (err) {
+        if (err instanceof OptionValidationError) return {
+            status: OutcomeStatus.FAIL_VALIDATION,
+            body: {
+                constraint: err.constraint,
+                field: err.field,
+                value: err.value,
+                context: err.message,
+            },
+        };
+
+        throw err;
+    }
+
+    return {
+        guildId,
+        tournament: tournament?.value as string | undefined,
+        page: 0,
+    };
+};
+
+const PendingSubmissionsCommand = new SimpleRendezvousSlashCommand<PendingSubmissionsOutcome, PendingSubmissionsSolverParams, T1, PendingSubmissionsStatus, typeof CachedPendingSubmissionsInteraction.cacheParams>(
+    new SlashCommandBuilder()
+        .setName('pending-submissions')
+        .setDescription('Show the submissions waiting for review in the tournament.')
+        .addStringOption(option => option.setName('tournament').setDescription('The tournament to view. Defaults to current tournament.').setRequired(false)) as SlashCommandBuilder,
+    pendingSubmissionsSlashCommandDescriptions,
+    pendingSubmissionsSlashCommandValidator,
+    pendingSubmissionsSolver,
+    CachedPendingSubmissionsInteraction.cache,
+);
+
+export default PendingSubmissionsCommand;
