@@ -88,11 +88,12 @@ export const getPendingSubmissionsOfTournamentPaged = async (tournamentId: Ref<T
     const query = SubmissionModel
         .find()
         .where('challengeID').in(tournament!.challenges)
-        .where('status').equals(SubmissionStatus.PENDING);
+        .where('reviewNotes').size(0);
     const countQuery = query.clone().countDocuments();
-    const totalPages = Math.ceil(await (countQuery.exec()) / pageLimit);
+    const totalCount = await countQuery.exec();
+    const totalPages = Math.ceil(totalCount / pageLimit);
     const submissions = await query.skip(page * pageLimit).limit(pageLimit).exec();
-    return { submissions, totalPages };
+    return { submissions, totalCount, totalPages };
 };
 
 export const getReviewNoteById = async (id: Ref<ReviewNote> | string) => {
