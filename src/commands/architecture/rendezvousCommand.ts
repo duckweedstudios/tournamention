@@ -50,8 +50,12 @@ export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, C ex
         // Describer step
         const describedOutcome = this.describer(outcome);
         // Replyer step
-        const message = await this.replyer(interaction, describedOutcome);
-
+        const message = await this.replyer(interaction, describedOutcome)
+            .then(message => message)
+            .catch(error => {
+                console.error(`Error in RendezvousSlashCommand replyer step: ${error}`);
+                return;
+            });
         // Cache interaction
         if (this.cacher && isPaginatedOutcome(outcome)) {
             this.cacher({ client: interaction.client, messageId: (message as InteractionResponse).id, senderId: interaction.user.id, solverParams: solverParamsOrValidationErrorOutcome as S, totalPages: (outcome as unknown as PaginatedOutcome).pagination.totalPages} as unknown as C);
@@ -123,6 +127,10 @@ export class RendezvousMessageCommand<O extends OutcomeTypeConstraint, S, T1> im
         // Describer step
         const describedOutcome = this.describer(outcome);
         // Replyer step
-        await this.replyer(interaction, describedOutcome);
+        await this.replyer(interaction, describedOutcome)
+            .catch(error => {
+                console.error(`Error in RendezvousMessageCommand replyer step: ${error}`);
+                return;
+            });
     }
 }
