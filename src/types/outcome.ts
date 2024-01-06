@@ -98,6 +98,7 @@ export type PaginatedOutcome = {
     pagination: {
         page: number,
         totalPages: number,
+        totalCount?: number | undefined,
     }
 }
 

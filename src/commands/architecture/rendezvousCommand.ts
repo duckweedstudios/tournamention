@@ -1,4 +1,4 @@
-import { CommandInteraction, ContextMenuCommandBuilder, InteractionResponse, SlashCommandBuilder } from 'discord.js';
+import { CommandInteraction, ContextMenuCommandBuilder, InteractionResponse, Message, SlashCommandBuilder } from 'discord.js';
 import { DescriptionMap, OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeTypeConstraint, PaginatedOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, isEmbedDescribedOutcome, isPaginatedOutcome, isValidationErrorOutcome } from '../../types/outcome.js';
 import { LimitedCommandInteraction, limitCommandInteraction } from '../../types/limitedCommandInteraction.js';
 import { defaultSlashCommandDescriptions } from '../../types/defaultSlashCommandDescriptions.js';
@@ -6,7 +6,7 @@ import { PaginatedCacheParams } from '../../types/cachedInteractions.js';
 
 export interface RendezvousCommand<O extends OutcomeTypeConstraint, S, T1> {
     readonly interfacer: SlashCommandBuilder | ContextMenuCommandBuilder | undefined;
-    readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome) => Promise<InteractionResponse | void>;
+    readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome) => Promise<InteractionResponse | Message>;
     readonly describer: (outcome: O) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome; // TODO: Generalize a DescribedOutcome type when/as needed
     readonly validator: (interaction: LimitedCommandInteraction) => Promise<S | OptionValidationErrorOutcome<T1>>; // Generics for solverParams or (e.g. OptionValidationError)Outcome
     readonly solver: (solverParams: S) => Promise<O>;
@@ -17,7 +17,7 @@ export interface RendezvousCommand<O extends OutcomeTypeConstraint, S, T1> {
 export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, C extends PaginatedCacheParams | undefined = undefined> implements RendezvousCommand<O, S, T1> {
     constructor(
         public readonly interfacer: SlashCommandBuilder,
-        public readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome) => Promise<InteractionResponse | void>,
+        public readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome) => Promise<InteractionResponse | Message>,
         public readonly describer: (outcome: O) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome,
         public readonly validator: (interaction: LimitedCommandInteraction) => Promise<S | OptionValidationErrorOutcome<T1>>,
         public readonly solver: (solverParams: S) => Promise<O>,
@@ -32,6 +32,8 @@ export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, C ex
     }
 
     public async execute(interaction: CommandInteraction) {
+        // Temporary fix for slow leaderboard command response (#103)
+        if (interaction.commandName === 'leaderboard') await interaction.deferReply({ ephemeral: true });
         // Preprocessing step: remove unneeded properties from the interaction
         const limitedCommandInteraction = limitCommandInteraction(interaction);
         // Validator step
@@ -48,17 +50,26 @@ export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, C ex
         // Describer step
         const describedOutcome = this.describer(outcome);
         // Replyer step
-        const message = await this.replyer(interaction, describedOutcome);
-
+        const message = await this.replyer(interaction, describedOutcome)
+            .then(message => message)
+            .catch(error => {
+                console.error(`Error in RendezvousSlashCommand replyer step: ${error}`);
+                return;
+            });
         // Cache interaction
         if (this.cacher && isPaginatedOutcome(outcome)) {
             this.cacher({ client: interaction.client, messageId: (message as InteractionResponse).id, senderId: interaction.user.id, solverParams: solverParamsOrValidationErrorOutcome as S, totalPages: (outcome as unknown as PaginatedOutcome).pagination.totalPages} as unknown as C);
         }
     }
 
-    public static async simpleReplyer(interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome): Promise<InteractionResponse> {
-        if (isEmbedDescribedOutcome(describedOutcome)) return interaction.reply({ embeds: describedOutcome.embeds, components: describedOutcome.components, ephemeral: describedOutcome.ephemeral });
-        else return interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
+    public static async simpleReplyer(interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome): Promise<InteractionResponse | Message> {
+        if (isEmbedDescribedOutcome(describedOutcome)) {
+            if (interaction.deferred) {
+                return interaction.editReply({ embeds: describedOutcome.embeds, components: describedOutcome.components });
+            } else {
+                return interaction.reply({ embeds: describedOutcome.embeds, components: describedOutcome.components, ephemeral: describedOutcome.ephemeral });
+            }
+        } else return interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
     }
 }
 
@@ -87,7 +98,7 @@ export class SimpleRendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1
 export class RendezvousMessageCommand<O extends OutcomeTypeConstraint, S, T1> implements RendezvousCommand<O, S, T1> {
     constructor(
         public readonly interfacer: ContextMenuCommandBuilder,
-        public readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome) => Promise<void>,
+        public readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome) => Promise<InteractionResponse | Message>,
         public readonly describer: (outcome: O) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome,
         public readonly validator: (interaction: LimitedCommandInteraction) => Promise<S | OptionValidationErrorOutcome<T1>>,
         public readonly solver: (solverParams: S) => Promise<O>,
@@ -116,6 +127,10 @@ export class RendezvousMessageCommand<O extends OutcomeTypeConstraint, S, T1> im
         // Describer step
         const describedOutcome = this.describer(outcome);
         // Replyer step
-        await this.replyer(interaction, describedOutcome);
+        await this.replyer(interaction, describedOutcome)
+            .catch(error => {
+                console.error(`Error in RendezvousMessageCommand replyer step: ${error}`);
+                return;
+            });
     }
 }

@@ -5,6 +5,8 @@ import { Contestant } from '../schemas/contestant.js';
 import { Judge } from '../schemas/judge.js';
 import { Types as MongooseTypes, UpdateWriteOpResult } from 'mongoose';
 import { getCurrentTournament } from './guildSettingsQueries.js';
+import { Tournament, TournamentModel } from '../schemas/tournament.js';
+import config from '../../config.js';
 
 // CREATE / POST
 export const createSubmission = async (challengeID: Ref<Challenge>, contestantID: Ref<Contestant>, proof: string) => {
@@ -78,6 +80,20 @@ export const getSubmissionInCurrentTournamentFromContestantWithLink = async (gui
     const currentTournament = await getCurrentTournament(guildId);
     if (!currentTournament) return null;
     return SubmissionModel.findOne({ challengeID: { $in: currentTournament.challenges }, contestantID: contestantId, proof: link }).exec();
+};
+
+export const getPendingSubmissionsOfTournamentPaged = async (tournamentId: Ref<Tournament> | string, page: number) => {
+    const pageLimit = config.pagination.pendingSubmissionsPerPage;
+    const tournament = await TournamentModel.findById(tournamentId);
+    const query = SubmissionModel
+        .find()
+        .where('challengeID').in(tournament!.challenges)
+        .where('reviewNotes').size(0);
+    const countQuery = query.clone().countDocuments();
+    const totalCount = await countQuery.exec();
+    const totalPages = Math.ceil(totalCount / pageLimit);
+    const submissions = await query.skip(page * pageLimit).limit(pageLimit).exec();
+    return { submissions, totalCount, totalPages };
 };
 
 export const getReviewNoteById = async (id: Ref<ReviewNote> | string) => {

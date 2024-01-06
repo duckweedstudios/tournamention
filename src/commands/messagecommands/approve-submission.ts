@@ -267,8 +267,8 @@ const approveSubmissionMessageCommandDescriber = (outcome: ApproveSubmissionOutc
 };
 
 const approveSubmissionMessageCommandReplyer = async (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome) => {
-    if (isEmbedDescribedOutcome(describedOutcome)) interaction.reply({ embeds: describedOutcome.embeds, components: describedOutcome.components, ephemeral: describedOutcome.ephemeral });
-    else interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
+    if (isEmbedDescribedOutcome(describedOutcome)) return interaction.reply({ embeds: describedOutcome.embeds, components: describedOutcome.components, ephemeral: describedOutcome.ephemeral });
+    else return interaction.reply({ content: describedOutcome.userMessage, ephemeral: describedOutcome.ephemeral });
 };
 
 const ApproveSubmissionCommand = new RendezvousMessageCommand<ApproveSubmissionOutcome, ApproveSubmissionSolverParams, T1>(

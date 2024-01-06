@@ -38,7 +38,7 @@ export const getChallengesOfTournamentPaged = async (tournamentId: Ref<Tournamen
         .where('_id').in(tournament!.challenges)
         .sort({ game: 1, difficulty: 1, name: 1, _id: 1});
     const countQuery = query.clone().countDocuments();
-    const totalPages = Math.ceil(await (countQuery.countDocuments().exec()) / pageLimit);
+    const totalPages = Math.ceil(await (countQuery.exec()) / pageLimit);
     const challenges = await query.skip(page * pageLimit).limit(pageLimit).exec();
     return { challenges, totalPages };
 };
@@ -57,7 +57,7 @@ export const getChallengesOfTournamentByGamePaged = async (tournamentId: Ref<Tou
         .where('game').equals(game)
         .sort({ game: 1, difficulty: 1, name: 1, _id: 1});
     const countQuery = query.clone().countDocuments();
-    const totalPages = Math.ceil(await (countQuery.countDocuments().exec()) / pageLimit);
+    const totalPages = Math.ceil(await (countQuery.exec()) / pageLimit);
     const challenges = await query.skip(page * pageLimit).limit(pageLimit).exec();
     return { challenges, totalPages };
 };

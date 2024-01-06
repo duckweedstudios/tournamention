@@ -2,12 +2,12 @@ import { ObjectId } from 'mongodb';
 import { Document } from 'mongoose';
 import { BeAnObject, IObjectWithTypegooseFunction } from '@typegoose/typegoose/lib/types.js';
 import { Tournament } from '../backend/schemas/tournament.js';
-import { Challenge } from '../backend/schemas/challenge.js';
-import { Contestant } from '../backend/schemas/contestant.js';
+import { Challenge, ChallengeModel } from '../backend/schemas/challenge.js';
+import { Contestant, ContestantModel } from '../backend/schemas/contestant.js';
 import { Difficulty, DifficultyModel } from '../backend/schemas/difficulty.js';
 import { GuildSettings } from '../backend/schemas/guildsettings.js';
 import { Judge } from '../backend/schemas/judge.js';
-import { Submission } from '../backend/schemas/submission.js';
+import { Submission, SubmissionStatus } from '../backend/schemas/submission.js';
 import { getChallengesOfTournament } from '../backend/queries/challengeQueries.js';
 import { getDifficultiesOfTournament } from '../backend/queries/tournamentQueries.js';
 
@@ -82,6 +82,35 @@ export class ResolvedTournament {
         }
         this.difficulties = await getDifficultiesOfTournament(this.document);
         
+        return this;
+    }
+}
+
+export class ResolvedSubmission {
+    private readonly document: SubmissionDocument;
+
+    public _id!: ObjectId;
+    public challenge!: ResolvedChallenge;
+    public contestant!: ContestantDocument;
+    public proof!: string;
+    public status!: SubmissionStatus;
+    public createdAt!: Date;
+    public updatedAt!: Date;
+
+    public constructor(submission: SubmissionDocument) {
+        this.document = submission;
+    }
+
+    public async make(): Promise<ResolvedSubmission> {
+        this._id = this.document._id;
+        const challenge = await ChallengeModel.findById(this.document.challengeID);
+        if (!challenge) throw new Error(`Error in customDocument.ts: Could not find challenge ${this.document.challengeID}`);
+        this.challenge = await (new ResolvedChallenge(challenge)).make();
+        const contestant = await ContestantModel.findById(this.document.contestantID);
+        if (!contestant) throw new Error(`Error in customDocument.ts: Could not find contestant ${this.document.contestantID}`);
+        this.contestant = contestant;
+        this.proof = this.document.proof;
+        this.status = this.document.get('status');
         return this;
     }
 }

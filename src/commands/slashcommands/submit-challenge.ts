@@ -13,6 +13,7 @@ import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction
 import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
+import config from '../../config.js';
 
 /**
  * Alias for the first generic type of the command.
@@ -149,6 +150,7 @@ const submitChallengeSlashCommandValidator = async (interaction: LimitedCommandI
 
     const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([]);
 
+    const proofLink = interaction.options.get('proof-link', true);
     const tournament = interaction.options.get('tournament', false);
     const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
         [tournament, [
@@ -161,14 +163,20 @@ const submitChallengeSlashCommandValidator = async (interaction: LimitedCommandI
                 }
             },
         ]],
+        [proofLink, [
+            // Ensure that the proof link's length is <= 200 characters
+            {
+                category: OptionValidationErrorStatus.OPTION_TOO_LONG,
+                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                    return (option as string).length <= config.fieldCharacterLimits.proofLink;
+                }
+            }
+        ]],
     ]);
 
     let challengeName: string;
-    let proofLink: string;
     try {
         challengeName = interaction.options.get('name', true).value! as string;
-        proofLink = interaction.options.get('proof-link', true).value! as string;
-
         await validateConstraints(interaction, metadataConstraints, optionConstraints);
     } catch (err) {
         if (err instanceof OptionValidationError) return ({
@@ -188,7 +196,7 @@ const submitChallengeSlashCommandValidator = async (interaction: LimitedCommandI
         guildId: guildId,
         challengeName: challengeName,
         contestantId: interaction.member!.user!.id,
-        proofLink: proofLink,
+        proofLink: proofLink.value! as string,
         tournamentName: (tournament ? tournament.value as string : undefined),
     };
 };
