@@ -2,7 +2,7 @@ import { ButtonBuilder, ButtonInteraction, ButtonStyle } from 'discord.js';
 import CustomButton from './architecture/CustomButton.js';
 import { TournamentionClient } from '../types/client.js';
 import { isEmbedDescribedOutcome } from '../types/outcome.js';
-import { CachedChallengesInteraction } from '../types/cachedInteractions.js';
+import { CacherCachedInteraction } from '../types/cachedInteractions.js';
 
 const lastButton = new CustomButton(
     new ButtonBuilder()
@@ -12,7 +12,7 @@ const lastButton = new CustomButton(
     async (interaction: ButtonInteraction) => {
         // Find cached data for this original interaction
         const client = await TournamentionClient.getInstance();
-        const cached = client.getCachedInteraction(interaction.message.interaction!.id) as CachedChallengesInteraction;
+        const cached = client.getCachedInteraction(interaction.message.interaction!.id) as CacherCachedInteraction;
         if (!cached) {
             await interaction.reply({ content: 'This interaction has expired!', ephemeral: true });
             return;

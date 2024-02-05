@@ -20,7 +20,11 @@ export const validateConstraints = async (interaction: LimitedCommandInteraction
     // Using for ... of syntax because forEach does not support async functions.
     for (const [metadataField, constraints] of metadataConstraintMap) {
         for (const constraint of constraints) {
-            if (!(await constraint.func(interaction[metadataField]))) {
+            try {
+                if (!(await constraint.func(interaction[metadataField]))) {
+                    throw new Error();
+                }
+            } catch (err) {
                 throw new OptionValidationError<ValueOf<LimitedCommandInteraction>>(`Validation failed: check ${constraint.category} on metadata field ${metadataField} failed for value ${interaction[metadataField]}.`,
                     constraint,
                     metadataField,
@@ -62,7 +66,11 @@ export const validateConstraints = async (interaction: LimitedCommandInteraction
 
         // With the type of the option established, run the constraints on it.
         for (const constraint of constraints) {
-            if (!(await constraint.func(optionValue))) {
+            try {
+                if (!(await constraint.func(optionValue))) {
+                    throw new Error();
+                }
+            } catch (err) {
                 throw new OptionValidationError(`Validation failed: check ${constraint.category} on option ${option.name} failed for value ${optionValue}.`,
                     constraint,
                     option.name,
