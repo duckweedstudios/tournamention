@@ -9,7 +9,7 @@ export const createGuildSettings = async (guildID: string): Promise<GuildSetting
 
 // READ / GET
 export const getGuildSettings = async (guildID: string): Promise<GuildSettingsDocument | null> => {
-    return GuildSettingsModel.findOne({ guildID: guildID });
+    return GuildSettingsModel.findOne({ guildID: guildID }).exec();
 };
 
 export const getOrCreateGuildSettings = async (guildID: string): Promise<GuildSettingsDocument> => {

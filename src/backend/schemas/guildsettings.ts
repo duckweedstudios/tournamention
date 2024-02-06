@@ -11,7 +11,7 @@ export class GuildSettings {
 
     public async getCurrentTournament(): Promise<TournamentDocument | null> {
         // TODO: test performance WRT frequent .toObject() calls, would a separate array of Tournament be faster?
-        const guildTournaments = await TournamentModel.find({ guildID: this.guildID });
+        const guildTournaments = await TournamentModel.find({ guildID: this.guildID }).exec();
         const activeTournaments = guildTournaments
             .filter((t: TournamentDocument) => {
                 return t.toObject().active;
