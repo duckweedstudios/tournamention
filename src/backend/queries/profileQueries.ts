@@ -37,21 +37,21 @@ export const createJudge = async (guildId: string, memberId: string): Promise<Ju
  * @returns The new or existing Contestant document.
  */
 export const getOrCreateContestant = async (guildId: string, memberId: string): Promise<ContestantDocument> => {
-    const contestant = await ContestantModel.findOne({ guildID: guildId, userID: memberId });
+    const contestant = await ContestantModel.findOne({ guildID: guildId, userID: memberId }).exec();
     if (contestant) return contestant;
     else return createContestant(guildId, memberId);
 };
 
 export const getContestantByGuildIdAndMemberId = async (guildId: string, memberId: string): Promise<ContestantDocument | null> => {
-    return ContestantModel.findOne({ guildID: guildId, userID: memberId });
+    return ContestantModel.findOne({ guildID: guildId, userID: memberId }).exec();
 };
 
 export const getContestantById = async (id: Ref<Contestant> | string): Promise<ContestantDocument | null> => {
-    return ContestantModel.findById(id);
+    return ContestantModel.findById(id).exec();
 };
 
 export const getJudgeById = async (id: Ref<Judge> | string): Promise<JudgeDocument | null> => {
-    return JudgeModel.findById(id);
+    return JudgeModel.findById(id).exec();
 };
 
 export const getJudgeByGuildIdAndMemberId = async (guildId: string, memberId: string): Promise<JudgeDocument | null> => {

@@ -84,7 +84,7 @@ export const getSubmissionInCurrentTournamentFromContestantWithLink = async (gui
 
 export const getPendingSubmissionsOfTournamentPaged = async (tournamentId: Ref<Tournament> | string, page: number) => {
     const pageLimit = config.pagination.pendingSubmissionsPerPage;
-    const tournament = await TournamentModel.findById(tournamentId);
+    const tournament = await TournamentModel.findById(tournamentId).exec();
     const query = SubmissionModel
         .find()
         .where('challengeID').in(tournament!.challenges)
