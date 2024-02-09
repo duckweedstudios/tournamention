@@ -1,10 +1,10 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { GuildMember, PermissionsBitField } from 'discord.js';
 import { getTournamentByName, updateTournament } from '../../backend/queries/tournamentQueries.js';
 import { ResolvedTournament, resolveTournaments } from '../../types/customDocument.js';
 import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../../types/outcome.js';
-import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { LimitedCommandInteraction, LimitedCommandInteractionOption } from '../../types/limitedCommandInteraction.js';
 import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
@@ -115,12 +115,12 @@ const editTournamentSlashCommandValidator = async (interaction: LimitedCommandIn
             },
         ]],
     ]);
-    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
+    const optionConstraints = new Map<LimitedCommandInteractionOption | null, Constraint<ValueOf<LimitedCommandInteractionOption>>[]>([
         [name, [
             // Ensure that the tournament exists
             {
                 category: OptionValidationErrorStatus.OPTION_DNE,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = await getTournamentByName(guildId, option as string);
                     return tournamentDocument !== null;
                 }
@@ -130,14 +130,14 @@ const editTournamentSlashCommandValidator = async (interaction: LimitedCommandIn
             // Ensure tournament name is <= 45 characters
             {
                 category: OptionValidationErrorStatus.OPTION_TOO_LONG,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     return (option as string).length <= config.fieldCharacterLimits.tournamentName;
                 },
             },
             // Ensure that no other Tournament exists with the same name
             {
                 category: OptionValidationErrorStatus.OPTION_DUPLICATE,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = await getTournamentByName(guildId, option as string);
                     return tournamentDocument === null;
                 },
