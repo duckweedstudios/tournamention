@@ -1,5 +1,5 @@
-import { CommandInteractionOption, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
-import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import { LimitedCommandInteraction, LimitedCommandInteractionOption } from '../../types/limitedCommandInteraction.js';
 import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../../types/outcome.js';
 import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 import { ValueOf } from '../../types/typelogic.js';
@@ -111,12 +111,12 @@ const leaderboardSlashCommandValidator = async (interaction: LimitedCommandInter
     const tournament = interaction.options.get('tournament', false);
 
     const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([]);
-    const optionConstraints = new Map<CommandInteractionOption | null | ALWAYS_OPTION_CONSTRAINT, Constraint<ValueOf<CommandInteractionOption>>[]>([
+    const optionConstraints = new Map<LimitedCommandInteractionOption | null | ALWAYS_OPTION_CONSTRAINT, Constraint<ValueOf<LimitedCommandInteractionOption>>[]>([
         [tournament, [
             // Ensure that the tournament exists, if it was provided
             {
                 category: OptionValidationErrorStatus.OPTION_DNE,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = await getTournamentByName(guildId, option as string);
                     return tournamentDocument !== null;
                 }
@@ -126,7 +126,7 @@ const leaderboardSlashCommandValidator = async (interaction: LimitedCommandInter
             // Ensure that either the specified Tournament exists (seemingly redundantly) or there is a current Tournament
             {
                 category: OptionValidationErrorStatus.OPTION_UNDEFAULTABLE,
-                func: async function(_: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(_: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
                     return tournamentDocument !== null;
                 },

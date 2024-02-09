@@ -1,11 +1,11 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { GuildMember, PermissionsBitField } from 'discord.js';
 import { addChallengeToTournament, getDifficultyByEmoji, getTournamentByName } from '../../backend/queries/tournamentQueries.js';
 import { ChallengeDocument } from '../../types/customDocument.js';
 import { ChallengeModel } from '../../backend/schemas/challenge.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
-import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { LimitedCommandInteraction, LimitedCommandInteractionOption } from '../../types/limitedCommandInteraction.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, SlashCommandDescribedOutcome } from '../../types/outcome.js';
 import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints } from '../architecture/validation.js';
@@ -117,14 +117,14 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
     const tournament = interaction.options.get('tournament', false);
     const difficulty = interaction.options.get('difficulty', false);
 
-    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
+    const optionConstraints = new Map<LimitedCommandInteractionOption | null, Constraint<ValueOf<LimitedCommandInteractionOption>>[]>([
         [tournament, [
             // Ensure that the tournament exists, if it was provided
             // This occurs before UNDEFAULTABLE constraint to discriminate the case of a nonexistent
             // specified tournament name for the sake of the user feedback message
             {
                 category: OptionValidationErrorStatus.OPTION_DNE,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = await getTournamentByName(guildId, option as string);
                     return tournamentDocument !== null;
                 }
@@ -136,7 +136,7 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
             // Ensure challenge name is <= 40 characters
             {
                 category: OptionValidationErrorStatus.OPTION_TOO_LONG,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     return (option as string).length <= config.fieldCharacterLimits.challengeName;
                 },
             },
@@ -144,7 +144,7 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
             // This constraint hijacks the required option challengeName and does not use its value
             {
                 category: OptionValidationErrorStatus.OPTION_UNDEFAULTABLE,
-                func: async function(_: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(_: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
                     return tournamentDocument !== null;
                 },
@@ -152,7 +152,7 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
             // Ensure that the Challenge name is unique for the Tournament
             {
                 category: OptionValidationErrorStatus.OPTION_DUPLICATE,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
                     if (!tournamentDocument) return false;
                     const tournamentChallenges = await tournamentDocument.get('resolvingChallenges') as ChallengeDocument[];
@@ -164,7 +164,7 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
             // Ensure game name is <= 30 characters
             {
                 category: OptionValidationErrorStatus.OPTION_TOO_LONG,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     return (option as string).length <= config.fieldCharacterLimits.game;
                 },
             },
@@ -173,7 +173,7 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
             // Ensure description is <= 300 characters
             {
                 category: OptionValidationErrorStatus.OPTION_TOO_LONG,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     return (option as string).length <= config.fieldCharacterLimits.challengeDescription;
                 },
             },
@@ -182,7 +182,7 @@ const createChallengeSlashCommandValidator = async (interaction: LimitedCommandI
             // Ensure that the difficulty exists, if it was provided
             {
                 category: OptionValidationErrorStatus.OPTION_DNE,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
                     if (!tournamentDocument) return false;
                     const difficultyDocument = await getDifficultyByEmoji(tournamentDocument, option as string);

@@ -1,10 +1,10 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { GuildMember, PermissionsBitField } from 'discord.js';
 import { createDifficultyInTournament, getDifficultyByEmoji, getTournamentByName, isSingleEmoji } from '../../backend/queries/tournamentQueries.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
 import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, SlashCommandDescribedOutcome } from '../../types/outcome.js';
-import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { LimitedCommandInteraction, LimitedCommandInteractionOption } from '../../types/limitedCommandInteraction.js';
 import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { ValueOf } from '../../types/typelogic.js';
@@ -120,14 +120,14 @@ const createDifficultySlashCommandValidator = async (interaction: LimitedCommand
 
     const tournament = interaction.options.get('tournament', false);
 
-    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
+    const optionConstraints = new Map<LimitedCommandInteractionOption | null, Constraint<ValueOf<LimitedCommandInteractionOption>>[]>([
         [tournament, [
             // Ensure that the tournament exists, if it was provided
             // This occurs before UNDEFAULTABLE constraint to discriminate the case of a nonexistent
             // specified tournament name for the sake of the user feedback message
             {
                 category: OptionValidationErrorStatus.OPTION_DNE,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = await getTournamentByName(guildId, option as string);
                     return tournamentDocument !== null;
                 }
@@ -140,7 +140,7 @@ const createDifficultySlashCommandValidator = async (interaction: LimitedCommand
             // This constraint hijacks the required option emoji and does not use its value
             {
                 category: OptionValidationErrorStatus.OPTION_UNDEFAULTABLE,
-                func: async function(_: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(_: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
                     return tournamentDocument !== null;
                 },
@@ -148,14 +148,14 @@ const createDifficultySlashCommandValidator = async (interaction: LimitedCommand
             // Ensure that the emoji is a single emoji
             {
                 category: OptionValidationErrorStatus.OPTION_INVALID,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     return isSingleEmoji(option as string);
                 },
             },
             // Ensure that the emoji is not already a difficulty in the specified Tournament
             {
                 category: OptionValidationErrorStatus.OPTION_DUPLICATE,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = tournament ? await getTournamentByName(guildId, tournament.value as string) : await getCurrentTournament(guildId);
                     return (await getDifficultyByEmoji(tournamentDocument!, option as string)) === null;
                 },
@@ -165,7 +165,7 @@ const createDifficultySlashCommandValidator = async (interaction: LimitedCommand
             // Ensure that the point value is a non-negative integer
             {
                 category: OptionValidationErrorStatus.NUMBER_BEYOND_RANGE,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     return (option as number) >= 0;
                 },
             },
