@@ -2,6 +2,7 @@ import { Snowflake, CommandInteraction, InteractionType, Message, MessageContext
 
 export type LimitedUser = {
     id: Snowflake;
+    bot: boolean;
 };
 
 export type LimitedChannel = {
