@@ -1,12 +1,12 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteractionOption, GuildMember, PermissionsBitField } from 'discord.js';
+import { GuildMember, PermissionsBitField } from 'discord.js';
 import { OutcomeStatus, Outcome, SlashCommandDescribedOutcome, OutcomeWithDuoListBody, OutcomeWithDuoBody, OutcomeWithMonoBody, OptionValidationErrorOutcome } from '../../types/outcome.js';
 import { getChallengeOfTournamentByName } from '../../backend/queries/challengeQueries.js';
 import { getContestantByGuildIdAndMemberId, getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
 import { createOrUpdateReviewNoteAndAddTo, getNewestSubmissionForChallengeFromContestant } from '../../backend/queries/submissionQueries.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { SubmissionStatus } from '../../backend/schemas/submission.js';
-import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { LimitedCommandInteraction, LimitedCommandInteractionOption } from '../../types/limitedCommandInteraction.js';
 import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { getTournamentByName } from '../../backend/queries/tournamentQueries.js';
@@ -212,12 +212,12 @@ const judgeSubmissionSlashCommandValidator = async (interaction: LimitedCommandI
     const contestant = interaction.options.get('contestant', true);
     const tournament = interaction.options.get('tournament', false);
 
-    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
+    const optionConstraints = new Map<LimitedCommandInteractionOption | null, Constraint<ValueOf<LimitedCommandInteractionOption>>[]>([
         [tournament, [
             // Ensure that the tournament exists, if it was provided
             {
                 category: OptionValidationErrorStatus.OPTION_DNE,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = await getTournamentByName(guildId, option as string);
                     return tournamentDocument !== null;
                 }

@@ -1,5 +1,5 @@
-import { CommandInteractionOption, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
-import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import { LimitedCommandInteraction, LimitedCommandInteractionOption } from '../../types/limitedCommandInteraction.js';
 import { OutcomeStatus, Outcome, OptionValidationErrorOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../../types/outcome.js';
 import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 import { ValueOf } from '../../types/typelogic.js';
@@ -101,7 +101,7 @@ const profileSolver = async (params: ProfileSolverParams): Promise<ProfileOutcom
 
 const profileSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<ProfileSolverParams | OptionValidationErrorOutcome<T1>> => {
     const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([]);
-    const optionConstraints = new Map<CommandInteractionOption | null | ALWAYS_OPTION_CONSTRAINT, Constraint<ValueOf<CommandInteractionOption>>[]>([]);
+    const optionConstraints = new Map<LimitedCommandInteractionOption | null | ALWAYS_OPTION_CONSTRAINT, Constraint<ValueOf<LimitedCommandInteractionOption>>[]>([]);
 
     try {
         await validateConstraints(interaction, metadataConstraints, optionConstraints);
