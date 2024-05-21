@@ -39,10 +39,10 @@ export const TournamentModel = getModelForClass(Tournament);
 
 TournamentModel.schema.virtual('resolvingChallenges').get(function() {
     // If this doesn't work then try returning the promise and rename this resolvingChallenges
-    return ChallengeModel.find({ _id: { $in: this.challenges } });
+    return ChallengeModel.find({ _id: { $in: this.challenges } }).exec();
 });
 
 TournamentModel.schema.virtual('resolvingDifficulties').get(function() {
     // If this doesn't work then try returning the promise and rename this resolvingDifficulties
-    return DifficultyModel.find({ _id: { $in: this.difficulties } });
+    return DifficultyModel.find({ _id: { $in: this.difficulties } }).exec();
 });

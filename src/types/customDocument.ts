@@ -41,7 +41,7 @@ export class ResolvedChallenge {
         this._id = this.document._id;
         this.name = this.document.name;
         this.description = this.document.description;
-        this.difficulty = await DifficultyModel.findById(this.document.difficulty);
+        this.difficulty = await DifficultyModel.findById(this.document.difficulty).exec();
         this.game = this.document.game;
         this.visibility = this.document.visibility;
         return this;
@@ -103,10 +103,10 @@ export class ResolvedSubmission {
 
     public async make(): Promise<ResolvedSubmission> {
         this._id = this.document._id;
-        const challenge = await ChallengeModel.findById(this.document.challengeID);
+        const challenge = await ChallengeModel.findById(this.document.challengeID).exec();
         if (!challenge) throw new Error(`Error in customDocument.ts: Could not find challenge ${this.document.challengeID}`);
         this.challenge = await (new ResolvedChallenge(challenge)).make();
-        const contestant = await ContestantModel.findById(this.document.contestantID);
+        const contestant = await ContestantModel.findById(this.document.contestantID).exec();
         if (!contestant) throw new Error(`Error in customDocument.ts: Could not find contestant ${this.document.contestantID}`);
         this.contestant = contestant;
         this.proof = this.document.proof;

@@ -101,15 +101,15 @@ export class TournamentBuilder {
 
 // READ / GET
 export const getTournamentById = async (id: ObjectId): Promise<TournamentDocument | null> => {
-    return TournamentModel.findById(id);
+    return TournamentModel.findById(id).exec();
 };
 
 export const getTournamentsByGuild = async (guildID: string): Promise<TournamentDocument[] | null> => {
-    return TournamentModel.find({ guildID: guildID });
+    return TournamentModel.find({ guildID: guildID }).exec();
 };
 
 export const getTournamentByName = async (guildID: string, name: string): Promise<TournamentDocument | null> => {
-    return TournamentModel.findOne({ guildID: guildID, name: name });
+    return TournamentModel.findOne({ guildID: guildID, name: name }).exec();
 };
 
 const explicitSupportedEmojis = ['2️⃣', '3️⃣', '4️⃣', '5️⃣'];
@@ -121,7 +121,7 @@ export const isSingleEmoji = (emoji: string): boolean => {
 };
 
 export const getDifficultyByID = async (id: Ref<Difficulty> | string): Promise<DifficultyDocument | null> => {
-    return DifficultyModel.findById(id);
+    return DifficultyModel.findById(id).exec();
 };
 
 export const getDifficultyByEmoji = async (tournament: TournamentDocument, emoji: string): Promise<DifficultyDocument | null> => {
@@ -137,7 +137,7 @@ export const getDifficultyByEmoji = async (tournament: TournamentDocument, emoji
 };
 
 export const getDifficultiesOfTournament = async (tournamentId: Ref<Tournament> | string): Promise<DifficultyDocument[]> => {
-    const tournament = await TournamentModel.findById(tournamentId);
+    const tournament = await TournamentModel.findById(tournamentId).exec();
     return DifficultyModel.find().where('_id').in(tournament!.difficulties).exec();
 };
 
@@ -147,7 +147,7 @@ export const updateTournament = async (id: ObjectId, update: UpdateTournamentPar
 };
 
 export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, challenge: ChallengeDocument): Promise<TournamentDocument> => {
-    const tournament = await TournamentModel.findById(tournamentID);
+    const tournament = await TournamentModel.findById(tournamentID).exec();
     if (!tournament) throw new Error('Error in addChallengeToTournament: Tournament not found.');
     const resolvedChallenges = await tournament.get('resolvingChallenges') as ChallengeDocument[];
     for (const existingChallenge of resolvedChallenges) {
@@ -162,7 +162,7 @@ export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, ch
 // };
 
 const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, difficulty: DifficultyDocument): Promise<TournamentDocument> => {
-    const tournament = await TournamentModel.findById(tournamentID);
+    const tournament = await TournamentModel.findById(tournamentID).exec();
     if (!tournament) throw new Error('Error in addDifficultyToTournament: Tournament not found.');
     const resolvedDifficulties = await tournament.get('resolvingDifficulties') as DifficultyDocument[];
     for (const existingDifficulty of resolvedDifficulties) {
@@ -175,5 +175,5 @@ const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, difficul
 // DELETE
 // TODO: Delete all challenges and difficulties from tournament
 export const deleteTournament = async (id: Ref<Tournament>): Promise<TournamentDocument | null> => {
-    return TournamentModel.findByIdAndDelete(id);
+    return TournamentModel.findByIdAndDelete(id).exec();
 };
