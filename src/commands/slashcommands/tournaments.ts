@@ -1,10 +1,10 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteractionOption, EmbedBuilder, GuildMember, PermissionsBitField } from 'discord.js';
+import { EmbedBuilder, GuildMember, PermissionsBitField } from 'discord.js';
 import { getTournamentsByGuild } from '../../backend/queries/tournamentQueries.js';
 import { ResolvedTournament, TournamentDocument, resolveTournaments } from '../../types/customDocument.js';
 import { OptionValidationError } from '../../types/customError.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
-import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { LimitedCommandInteraction, LimitedCommandInteractionOption } from '../../types/limitedCommandInteraction.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome } from '../../types/outcome.js';
 import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints } from '../architecture/validation.js';
@@ -125,7 +125,7 @@ const tournamentsSlashCommandValidator = async (interaction: LimitedCommandInter
     const guildId = interaction.guildId!;
 
     const metadataConstraints = new Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>([]);
-    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([]);
+    const optionConstraints = new Map<LimitedCommandInteractionOption | null, Constraint<ValueOf<LimitedCommandInteractionOption>>[]>([]);
 
     const judge = await getJudgeByGuildIdAndMemberId(guildId, (interaction.member as GuildMember).id);
     const memberIsJudgeOrAdmin = (judge && judge.isActiveJudge) || (interaction.member as GuildMember).permissions.has(PermissionsBitField.Flags.Administrator);

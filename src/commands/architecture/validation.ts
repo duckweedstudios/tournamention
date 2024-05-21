@@ -1,7 +1,7 @@
-import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { LimitedCommandInteraction, LimitedCommandInteractionOption } from '../../types/limitedCommandInteraction.js';
 import { ValueOf } from '../../types/typelogic.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
-import { ApplicationCommandOptionType, CommandInteractionOption } from 'discord.js';
+import { ApplicationCommandOptionType } from 'discord.js';
 
 export type Constraint<T> = {
     category: OptionValidationErrorStatus;
@@ -16,7 +16,7 @@ export type ALWAYS_OPTION_CONSTRAINT = 'ALWAYS_OPTION_CONSTRAINT';
  * @param metadataConstraintMap A map of a metadata field of `LimitedCommandInteraction` to a list of one or many `Constraint`s to run on that field.
  * @param optionConstraintMap A map of options of the slash command to a list of one or many `Constraint`s to run on that option.
  */
-export const validateConstraints = async (interaction: LimitedCommandInteraction, metadataConstraintMap: Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>, optionConstraintMap: Map<CommandInteractionOption | null | ALWAYS_OPTION_CONSTRAINT, Constraint<ValueOf<CommandInteractionOption>>[]>): Promise<void> => {
+export const validateConstraints = async (interaction: LimitedCommandInteraction, metadataConstraintMap: Map<keyof LimitedCommandInteraction, Constraint<ValueOf<LimitedCommandInteraction>>[]>, optionConstraintMap: Map<LimitedCommandInteractionOption | null | ALWAYS_OPTION_CONSTRAINT, Constraint<ValueOf<LimitedCommandInteractionOption>>[]>): Promise<void> => {
     // Using for ... of syntax because forEach does not support async functions.
     for (const [metadataField, constraints] of metadataConstraintMap) {
         for (const constraint of constraints) {
@@ -51,13 +51,13 @@ export const validateConstraints = async (interaction: LimitedCommandInteraction
         }
 
         // Determine the intended option data based on `option.type`.
-        let optionValue: ValueOf<CommandInteractionOption>;
+        let optionValue: ValueOf<LimitedCommandInteractionOption>;
         if (option.type === ApplicationCommandOptionType.User) {
             optionValue = option.user;
         } else if (option.type === ApplicationCommandOptionType.Channel) {
-            optionValue = option.channel;
+            optionValue = option.channel!.id;
         } else if (option.type === ApplicationCommandOptionType.Role) {
-            optionValue = option.role;
+            optionValue = option.role!.id;
         } else if (option.type === ApplicationCommandOptionType.String || option.type === ApplicationCommandOptionType.Integer || option.type === ApplicationCommandOptionType.Number || option.type === ApplicationCommandOptionType.Boolean) {
             optionValue = option.value;
         } else {

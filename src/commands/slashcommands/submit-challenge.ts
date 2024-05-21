@@ -1,5 +1,4 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteractionOption } from 'discord.js';
 import { getTournamentByName } from '../../backend/queries/tournamentQueries.js';
 import { SubmissionDocument } from '../../types/customDocument.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
@@ -9,7 +8,7 @@ import { getOrCreateContestant } from '../../backend/queries/profileQueries.js';
 import { createSubmission, getSubmissionsForChallengeFromContestant } from '../../backend/queries/submissionQueries.js';
 import { SubmissionStatus } from '../../backend/schemas/submission.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithMonoBody, SlashCommandDescribedOutcome } from '../../types/outcome.js';
-import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { LimitedCommandInteraction, LimitedCommandInteractionOption } from '../../types/limitedCommandInteraction.js';
 import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints } from '../architecture/validation.js';
 import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
@@ -152,12 +151,12 @@ const submitChallengeSlashCommandValidator = async (interaction: LimitedCommandI
 
     const proofLink = interaction.options.get('proof-link', true);
     const tournament = interaction.options.get('tournament', false);
-    const optionConstraints = new Map<CommandInteractionOption | null, Constraint<ValueOf<CommandInteractionOption>>[]>([
+    const optionConstraints = new Map<LimitedCommandInteractionOption | null, Constraint<ValueOf<LimitedCommandInteractionOption>>[]>([
         [tournament, [
             // Ensure that the tournament exists, if it was provided
             {
                 category: OptionValidationErrorStatus.OPTION_DNE,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     const tournamentDocument = await getTournamentByName(guildId, option as string);
                     return tournamentDocument !== null;
                 }
@@ -167,7 +166,7 @@ const submitChallengeSlashCommandValidator = async (interaction: LimitedCommandI
             // Ensure that the proof link's length is <= 200 characters
             {
                 category: OptionValidationErrorStatus.OPTION_TOO_LONG,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     return (option as string).length <= config.fieldCharacterLimits.proofLink;
                 }
             }

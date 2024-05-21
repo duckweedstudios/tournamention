@@ -1,4 +1,4 @@
-import { ApplicationCommandType, CommandInteraction, CommandInteractionOption, ContextMenuCommandBuilder, GuildMember, Message, PermissionsBitField } from 'discord.js';
+import { ApplicationCommandType, CommandInteraction, ContextMenuCommandBuilder, GuildMember, Message, PermissionsBitField } from 'discord.js';
 import { RendezvousMessageCommand } from '../architecture/rendezvousCommand.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithMonoBody, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, isEmbedDescribedOutcome } from '../../types/outcome.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
@@ -8,7 +8,7 @@ import { MakeReviewNoteAndInterpretResultOutcomeStatus, makeReviewNoteAndInterpr
 import { getChallengeById } from '../../backend/queries/challengeQueries.js';
 import { ResolvedChallenge } from '../../types/customDocument.js';
 import { OptionValidationErrorStatus, OptionValidationError } from '../../types/customError.js';
-import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { LimitedCommandInteraction, LimitedCommandInteractionOption } from '../../types/limitedCommandInteraction.js';
 import { ValueOf } from '../../types/typelogic.js';
 import { ALWAYS_OPTION_CONSTRAINT, Constraint, validateConstraints } from '../architecture/validation.js';
 import { defaultSlashCommandDescriptions } from '../../types/defaultSlashCommandDescriptions.js';
@@ -174,7 +174,7 @@ const approveSubmissionMessageCommandValidator = async (interaction: LimitedComm
         ]],
     ]);
 
-    const optionConstraints = new Map<CommandInteractionOption | null | ALWAYS_OPTION_CONSTRAINT, Constraint<ValueOf<CommandInteractionOption>>[]>([]);
+    const optionConstraints = new Map<LimitedCommandInteractionOption | null | ALWAYS_OPTION_CONSTRAINT, Constraint<ValueOf<LimitedCommandInteractionOption>>[]>([]);
 
     let proofLink: string;
     let contestantId: string;

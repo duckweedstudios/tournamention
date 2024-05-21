@@ -1,8 +1,8 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteractionOption, GuildMember, PermissionsBitField, User } from 'discord.js';
+import { GuildMember, PermissionsBitField, User } from 'discord.js';
 import { NonexistentJointGuildAndMemberError, OptionValidationError, OptionValidationErrorStatus, UnknownError } from '../../types/customError.js';
 import { setJudgeActive, setOrCreateActiveJudge } from '../../backend/queries/profileQueries.js';
-import { LimitedCommandInteraction } from '../../types/limitedCommandInteraction.js';
+import { LimitedCommandInteraction, LimitedCommandInteractionOption } from '../../types/limitedCommandInteraction.js';
 import { OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeWithDuoBody, OutcomeWithDuoListBody, SlashCommandDescribedOutcome } from '../../types/outcome.js';
 import { ValueOf } from '../../types/typelogic.js';
 import { Constraint, validateConstraints } from '../architecture/validation.js';
@@ -137,12 +137,12 @@ const assignJudgeSlashCommandValidator = async (interaction: LimitedCommandInter
         ]]
     ]);
 
-    const optionConstraints = new Map<CommandInteractionOption, Constraint<ValueOf<CommandInteractionOption>>[]>([
+    const optionConstraints = new Map<LimitedCommandInteractionOption, Constraint<ValueOf<LimitedCommandInteractionOption>>[]>([
         [who, [
             // Ensure that the target is not a bot
             {
                 category: OptionValidationErrorStatus.TARGET_USER_BOT,
-                func: async function(option: ValueOf<CommandInteractionOption>): Promise<boolean> {
+                func: async function(option: ValueOf<LimitedCommandInteractionOption>): Promise<boolean> {
                     return new Promise(function(resolve) {
                         resolve(!(option as User).bot);
                     });
