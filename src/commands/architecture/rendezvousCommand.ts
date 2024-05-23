@@ -2,7 +2,7 @@ import { CommandInteraction, ContextMenuCommandBuilder, InteractionResponse, Mes
 import { DescriptionMap, OptionValidationErrorOutcome, Outcome, OutcomeStatus, OutcomeTypeConstraint, PaginatedOutcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, isEmbedDescribedOutcome, isPaginatedOutcome, isValidationErrorOutcome } from '../../types/outcome.js';
 import { LimitedCommandInteraction, limitCommandInteraction } from '../../types/limitedCommandInteraction.js';
 import { defaultSlashCommandDescriptions } from '../../types/defaultSlashCommandDescriptions.js';
-import { PaginatedCacheParams } from '../../types/cachedInteractions.js';
+import { CachedCommandInteraction } from '../../types/cachedInteractions.js';
 
 export interface RendezvousCommand<O extends OutcomeTypeConstraint, S, T1> {
     readonly interfacer: SlashCommandBuilder | ContextMenuCommandBuilder | undefined;
@@ -14,21 +14,23 @@ export interface RendezvousCommand<O extends OutcomeTypeConstraint, S, T1> {
     readonly execute: (interaction: CommandInteraction) => Promise<void>;
 }
 
-export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, C extends PaginatedCacheParams | undefined = undefined> implements RendezvousCommand<O, S, T1> {
+export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1> implements RendezvousCommand<O, S, T1> {
     constructor(
         public readonly interfacer: SlashCommandBuilder,
         public readonly replyer: (interaction: CommandInteraction, describedOutcome: SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome) => Promise<InteractionResponse | Message>,
         public readonly describer: (outcome: O) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome,
         public readonly validator: (interaction: LimitedCommandInteraction) => Promise<S | OptionValidationErrorOutcome<T1>>,
         public readonly solver: (solverParams: S) => Promise<O>,
-        public readonly cacher?: ((cacheParams: C) => Promise<void>) | undefined,
+        public readonly defer?: boolean | undefined,
+        public readonly cache?: boolean | undefined,
     ) {
         this.interfacer = interfacer;
         this.replyer = replyer;
         this.describer = describer;
         this.validator = validator;
         this.solver = solver;
-        this.cacher = cacher;
+        this.defer = defer as boolean;
+        this.cache = cache as boolean;
     }
 
     public async execute(interaction: CommandInteraction) {
@@ -57,8 +59,9 @@ export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, C ex
                 return;
             });
         // Cache interaction
-        if (this.cacher && isPaginatedOutcome(outcome)) {
-            this.cacher({ client: interaction.client, messageId: (message as InteractionResponse).id, senderId: interaction.user.id, solverParams: solverParamsOrValidationErrorOutcome as S, totalPages: (outcome as unknown as PaginatedOutcome).pagination.totalPages} as unknown as C);
+        if (this.cache && isPaginatedOutcome(outcome)) {
+            //this.cacher({ client: interaction.client, messageId: (message as InteractionResponse).id, senderId: interaction.user.id, solverParams: solverParamsOrValidationErrorOutcome as S, totalPages: (outcome as unknown as PaginatedOutcome).pagination.totalPages} as unknown as C);
+            new CachedCommandInteraction(this, (message as InteractionResponse).id, interaction.user.id, solverParamsOrValidationErrorOutcome as S, (outcome as unknown as PaginatedOutcome).pagination.totalPages).cache();
         }
     }
 
@@ -73,16 +76,17 @@ export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, C ex
     }
 }
 
-export class SimpleRendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, CommandStatus = OutcomeStatus, C extends PaginatedCacheParams | undefined = undefined> extends RendezvousSlashCommand<O, S, T1, C> {
+export class SimpleRendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1, CommandStatus = OutcomeStatus> extends RendezvousSlashCommand<O, S, T1> {
     constructor(
         interfacer: SlashCommandBuilder,
         descriptions: DescriptionMap<CommandStatus, O>,
         validator: (interaction: LimitedCommandInteraction) => Promise<S | OptionValidationErrorOutcome<T1>>,
         solver: (solverParams: S) => Promise<O>,
-        cacher?: ((cacheParams: C) => Promise<void>) | undefined,
+        defer?: boolean | undefined,
+        cache?: boolean | undefined,
     ) {
         const describer = (outcome: O) => this.simpleDescriber(outcome, descriptions);
-        super(interfacer, RendezvousSlashCommand.simpleReplyer, describer, validator, solver, cacher);
+        super(interfacer, RendezvousSlashCommand.simpleReplyer, describer, validator, solver, defer, cache);
     }
 
     private simpleDescriber(outcome: O, descriptions: Map<CommandStatus, (o: O) => SlashCommandDescribedOutcome | SlashCommandEmbedDescribedOutcome>) {
