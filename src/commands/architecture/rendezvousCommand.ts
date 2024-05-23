@@ -34,8 +34,7 @@ export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1> impl
     }
 
     public async execute(interaction: CommandInteraction) {
-        // Temporary fix for slow leaderboard command response (#103)
-        if (interaction.commandName === 'leaderboard') await interaction.deferReply({ ephemeral: true });
+        if (this.defer) await interaction.deferReply({ ephemeral: true });
         // Preprocessing step: remove unneeded properties from the interaction
         const limitedCommandInteraction = limitCommandInteraction(interaction);
         // Validator step
