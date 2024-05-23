@@ -59,7 +59,6 @@ export class RendezvousSlashCommand<O extends OutcomeTypeConstraint, S, T1> impl
             });
         // Cache interaction
         if (this.cache && isPaginatedOutcome(outcome)) {
-            //this.cacher({ client: interaction.client, messageId: (message as InteractionResponse).id, senderId: interaction.user.id, solverParams: solverParamsOrValidationErrorOutcome as S, totalPages: (outcome as unknown as PaginatedOutcome).pagination.totalPages} as unknown as C);
             new CachedCommandInteraction(this, (message as InteractionResponse).id, interaction.user.id, solverParamsOrValidationErrorOutcome as S, (outcome as unknown as PaginatedOutcome).pagination.totalPages).cache();
         }
     }
