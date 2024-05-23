@@ -7,7 +7,6 @@ import { Constraint, validateConstraints, ALWAYS_OPTION_CONSTRAINT } from '../ar
 import { getTournamentByName } from '../../backend/queries/tournamentQueries.js';
 import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
-import { CachedPendingSubmissionsInteraction } from '../../types/cachedInteractions.js';
 import { PendingSubmissionsOutcome, PendingSubmissionsSolverParams, PendingSubmissionsStatus, T1, pendingSubmissionsSlashCommandDescriptions, pendingSubmissionsSolver } from './pending-submissions/pending-submissions-exports.js';
 
 
@@ -62,7 +61,7 @@ const pendingSubmissionsSlashCommandValidator = async (interaction: LimitedComma
     };
 };
 
-const PendingSubmissionsCommand = new SimpleRendezvousSlashCommand<PendingSubmissionsOutcome, PendingSubmissionsSolverParams, T1, PendingSubmissionsStatus, typeof CachedPendingSubmissionsInteraction.cacheParams>(
+const PendingSubmissionsCommand = new SimpleRendezvousSlashCommand<PendingSubmissionsOutcome, PendingSubmissionsSolverParams, T1, PendingSubmissionsStatus>(
     new SlashCommandBuilder()
         .setName('pending-submissions')
         .setDescription('Show the submissions waiting for review in the tournament.')
@@ -70,7 +69,8 @@ const PendingSubmissionsCommand = new SimpleRendezvousSlashCommand<PendingSubmis
     pendingSubmissionsSlashCommandDescriptions,
     pendingSubmissionsSlashCommandValidator,
     pendingSubmissionsSolver,
-    CachedPendingSubmissionsInteraction.cache,
+    false,
+    true,
 );
 
 export default PendingSubmissionsCommand;

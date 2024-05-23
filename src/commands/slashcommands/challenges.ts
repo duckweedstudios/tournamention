@@ -10,7 +10,6 @@ import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries
 import { getChallengesOfTournamentByDifficulty, getChallengesOfTournamentByGame, getChallengesOfTournamentByGamePaged, getChallengesOfTournamentPaged } from '../../backend/queries/challengeQueries.js';
 import { getJudgeByGuildIdAndMemberId } from '../../backend/queries/profileQueries.js';
 import { ChallengeDocument, ResolvedChallenge, ResolvedTournament } from '../../types/customDocument.js';
-import { CachedChallengesInteraction } from '../../types/cachedInteractions.js';
 import { TournamentionClient } from '../../types/client.js';
 import firstButton from '../../buttons/first.js';
 import lastButton from '../../buttons/last.js';
@@ -324,7 +323,7 @@ export const challengesSlashCommandDescriptions = new Map<ChallengesStatus, (o: 
     })],
 ]);
 
-const ChallengesCommand = new SimpleRendezvousSlashCommand<ChallengesOutcome, ChallengesSolverParams, T1, ChallengesStatus, typeof CachedChallengesInteraction.cacheParams>(
+const ChallengesCommand = new SimpleRendezvousSlashCommand<ChallengesOutcome, ChallengesSolverParams, T1, ChallengesStatus>(
     new SlashCommandBuilder()
         .setName('challenges')
         .setDescription('Show the challenges posted for a tournament.')
@@ -335,7 +334,8 @@ const ChallengesCommand = new SimpleRendezvousSlashCommand<ChallengesOutcome, Ch
     challengesSlashCommandDescriptions,
     challengesSlashCommandValidator,
     challengesSolver,
-    CachedChallengesInteraction.cache,
+    false,
+    true,
 );
 
 export default ChallengesCommand;
