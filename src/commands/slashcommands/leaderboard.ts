@@ -189,6 +189,7 @@ const LeaderboardCommand = new SimpleRendezvousSlashCommand<LeaderboardOutcome, 
     leaderboardSlashCommandDescriptions,
     leaderboardSlashCommandValidator,
     leaderboardSolver,
+    true,
 );
 
 export default LeaderboardCommand;
