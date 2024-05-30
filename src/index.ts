@@ -3,7 +3,7 @@ dotenv.config();
 import mongoose from 'mongoose';
 import example from './example.js';
 import example2 from './example2.js';
-import { TournamentionClient } from './types/client.js';
+import { RendezvousClient as TournamentionClient } from 'discord-rendezvous';
 import { prepareCommands } from './util/commandHandler.js';
 import { prepareEvents } from './util/eventHandler.js';
 import { prepareButtons } from './util/buttonHandler.js';
