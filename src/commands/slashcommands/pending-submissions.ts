@@ -1,13 +1,9 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { LimitedCommandInteraction, LimitedCommandInteractionOption } from '../../types/limitedCommandInteraction.js';
-import { OutcomeStatus, OptionValidationErrorOutcome } from '../../types/outcome.js';
-import { SimpleRendezvousSlashCommand } from '../architecture/rendezvousCommand.js';
 import { ValueOf } from '../../types/typelogic.js';
-import { Constraint, validateConstraints, ALWAYS_OPTION_CONSTRAINT } from '../architecture/validation.js';
 import { getTournamentByName } from '../../backend/queries/tournamentQueries.js';
-import { OptionValidationError, OptionValidationErrorStatus } from '../../types/customError.js';
 import { getCurrentTournament } from '../../backend/queries/guildSettingsQueries.js';
 import { PendingSubmissionsOutcome, PendingSubmissionsSolverParams, PendingSubmissionsStatus, T1, pendingSubmissionsSlashCommandDescriptions, pendingSubmissionsSolver } from './pending-submissions/pending-submissions-exports.js';
+import { LimitedCommandInteraction, OptionValidationErrorOutcome, Constraint, LimitedCommandInteractionOption, ALWAYS_OPTION_CONSTRAINT, OptionValidationErrorStatus, validateConstraints, OptionValidationError, OutcomeStatus, SimpleRendezvousSlashCommand } from 'discord-rendezvous';
 
 
 const pendingSubmissionsSlashCommandValidator = async (interaction: LimitedCommandInteraction): Promise<PendingSubmissionsSolverParams | OptionValidationErrorOutcome<T1>> => {
