@@ -5,7 +5,7 @@ import { getTournamentByName } from '../../../backend/queries/tournamentQueries.
 import { ResolvedSubmission, ResolvedTournament } from '../../../types/customDocument.js';
 import config from '../../../config.js';
 import { RendezvousClient as TournamentionClient, OutcomeStatus, PaginatedOutcome, Outcome, SlashCommandDescribedOutcome, SlashCommandEmbedDescribedOutcome, OptionValidationErrorOutcome, OptionValidationErrorStatus, firstButton, lastButton, nextButton, previousButton } from 'discord-rendezvous';
-import { PaginatedSolverParams } from 'discord-rendezvous/src/caching/paginatedSolverParams.js';
+import { PaginatedSolverParams } from 'discord-rendezvous';
 
 /**
  * Alias for the first generic type of the command.
