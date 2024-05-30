@@ -4,8 +4,8 @@
   "description": "A Discord.js TypeScript bot for managing custom challenges for users to complete.",
   "main": "index.ts",
   "scripts": {
-    "start": "ts-node src/index.ts",
-    "deploy-commands": "ts-node src/util/deploy-commands.ts",
+    "start": "node --loader ts-node/esm src/index.ts",
+    "deploy-commands": "node --loader ts-node/esm src/util/deploy-commands.ts",
     "test": "mocha"
   },
   "repository": {
