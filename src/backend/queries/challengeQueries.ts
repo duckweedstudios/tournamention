@@ -10,7 +10,7 @@ import config from '../../config.js';
 
 // READ / GET
 export const getChallengeById = async (id: Ref<Challenge> | string): Promise<ChallengeDocument | null> => {
-    return ChallengeModel.findById(id);
+    return ChallengeModel.findById(id).exec();
 };
 
 export const getChallengeOfTournamentByName = async (name: string, tournament: TournamentDocument): Promise<ChallengeDocument | null> => {
@@ -21,7 +21,7 @@ export const getChallengeOfTournamentByName = async (name: string, tournament: T
 };
 
 export const getChallengesOfTournament = async (tournamentId: Ref<Tournament> | string): Promise<ChallengeDocument[]> => {
-    const tournament = await TournamentModel.findById(tournamentId);
+    const tournament = await TournamentModel.findById(tournamentId).exec();
     return ChallengeModel.find().where('_id').in(tournament!.challenges).exec();
 };
 
@@ -32,7 +32,7 @@ type ChallengesAndPageCount = {
 
 export const getChallengesOfTournamentPaged = async (tournamentId: Ref<Tournament> | string, page: number): Promise<ChallengesAndPageCount> => {
     const pageLimit = config.pagination.challengesPerPage;
-    const tournament = await TournamentModel.findById(tournamentId);
+    const tournament = await TournamentModel.findById(tournamentId).exec();
     const query = ChallengeModel
         .find()
         .where('_id').in(tournament!.challenges)
@@ -44,13 +44,13 @@ export const getChallengesOfTournamentPaged = async (tournamentId: Ref<Tournamen
 };
 
 export const getChallengesOfTournamentByGame = async (tournamentId: Ref<Tournament> | string, game: string): Promise<ChallengeDocument[]> => {
-    const tournament = await TournamentModel.findById(tournamentId);
+    const tournament = await TournamentModel.findById(tournamentId).exec();
     return ChallengeModel.find().where('_id').in(tournament!.challenges).where('game').equals(game).exec();
 };
 
 export const getChallengesOfTournamentByGamePaged = async (tournamentId: Ref<Tournament> | string, game: string, page: number): Promise<ChallengesAndPageCount> => {
     const pageLimit = config.pagination.challengesPerPage;
-    const tournament = await TournamentModel.findById(tournamentId);
+    const tournament = await TournamentModel.findById(tournamentId).exec();
     const query = ChallengeModel
         .find()
         .where('_id').in(tournament!.challenges)
@@ -63,7 +63,7 @@ export const getChallengesOfTournamentByGamePaged = async (tournamentId: Ref<Tou
 };
 
 export const getChallengesOfTournamentByDifficulty = async (tournamentId: Ref<Tournament> | string, difficulty: Ref<Difficulty> | string): Promise<ChallengeDocument[]> => {
-    const tournament = await TournamentModel.findById(tournamentId);
+    const tournament = await TournamentModel.findById(tournamentId).exec();
     return ChallengeModel.find().where('_id').in(tournament!.challenges).where('difficulty').equals(difficulty).exec();
 };
 
@@ -71,7 +71,7 @@ export const getChallengesOfTournamentByDifficulty = async (tournamentId: Ref<To
 // const updateChallengeByName = async (challenge)
 
 export const updateChallengeById = async (id: ObjectId, update: UpdateChallengeParams): Promise<ChallengeDocument | null> => {
-    return ChallengeModel.findByIdAndUpdate(id, { $set: update });
+    return ChallengeModel.findByIdAndUpdate(id, { $set: update }).exec();
 };
 
 // DELETE
