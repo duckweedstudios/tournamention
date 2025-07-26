@@ -157,10 +157,6 @@ export const addChallengeToTournament = async (tournamentID: Ref<Tournament>, ch
     return tournament.save();
 };
 
-// TODO: Batch creation method for challenges
-// export const addChallengesToTournament = async (tournamentID: Ref<Tournament>, challenges: ChallengeModel[]): Promise<TournamentDocument> => {
-// };
-
 const addDifficultyToTournament = async (tournamentID: Ref<Tournament>, difficulty: DifficultyDocument): Promise<TournamentDocument> => {
     const tournament = await TournamentModel.findById(tournamentID);
     if (!tournament) throw new Error('Error in addDifficultyToTournament: Tournament not found.');

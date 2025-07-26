@@ -1,12 +1,34 @@
 import { ObjectId } from 'mongodb';
-import { ChallengeDocument, TournamentDocument } from '../../types/customDocument.js';
+import { ChallengeDocument, DifficultyDocument, TournamentDocument } from '../../types/customDocument.js';
 import { Challenge, ChallengeModel } from '../schemas/challenge.js';
 import { UpdateChallengeParams } from '../../types/apiPayloadObjects.js';
 import { Ref } from '@typegoose/typegoose';
 import { Tournament, TournamentModel } from '../schemas/tournament.js';
 import { Difficulty } from '../schemas/difficulty.js';
 import config from '../../config.js';
+import { getDifficultiesOfTournament } from './tournamentQueries.js';
+import { GameAndChallenges } from '../functions/importChallenges.js';
+
 // CREATE / POST
+export const createChallengesBulk = async (tournament: TournamentDocument, challenges: GameAndChallenges[]): Promise<ChallengeDocument[] | null> => {
+    const difficulties = await getDifficultiesOfTournament(tournament);
+    const difficultyMap = new Map<number, DifficultyDocument>(difficulties.map(d => [d.pointValue, d.id]));
+    const challengeDocuments = challenges.flatMap(game => 
+        game.challenges.map(challenge => ({
+            name: challenge.name,
+            description: challenge.description,
+            game: game.gameName,
+            difficulty: difficultyMap.get(challenge.difficulty) ?? undefined,
+            visibility: true,
+        }))
+    );
+    const request = await ChallengeModel.insertMany(challengeDocuments);
+
+    tournament.challenges.push(...request);
+    await tournament.save();
+
+    return request;
+};
 
 // READ / GET
 export const getChallengeById = async (id: Ref<Challenge> | string): Promise<ChallengeDocument | null> => {
