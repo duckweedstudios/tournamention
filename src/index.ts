@@ -6,7 +6,6 @@ import example2 from './example2.js';
 import { RendezvousClient as TournamentionClient } from 'discord-rendezvous';
 import { prepareCommands } from './util/commandHandler.js';
 import { prepareEvents } from './util/eventHandler.js';
-import { prepareButtons } from './util/buttonHandler.js';
 import { GatewayIntentBits } from 'discord.js';
 import config from './config.js';
 
@@ -35,7 +34,7 @@ const client = await TournamentionClient.getInstance();
 prepareCommands(client);
 
 // BUTTONS
-prepareButtons(client); // Currently no custom buttons -- keeping this for the future
+// prepareButtons(client); // Currently no custom buttons -- keeping this for the future
 
 // EVENTS
 prepareEvents(client);
