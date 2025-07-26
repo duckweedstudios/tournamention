@@ -25,7 +25,7 @@
   "dependencies": {
     "@typegoose/typegoose": "^11.3.0",
     "@types/node": "^20.4.2",
-    "discord-rendezvous": "^0.6.1",
+    "discord-rendezvous": "^0.9.2",
     "discord.js": "^14.15.2",
     "dotenv": "^16.3.1",
     "mongoose": "^7.3.4",
